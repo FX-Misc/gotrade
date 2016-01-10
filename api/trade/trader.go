@@ -89,8 +89,8 @@ func (account *Account) Login() (err error) {
 	if cacheUid != "" {
 		account.logger.Info("read cache uid : " + cacheUid)
 		account.Uid = cacheUid
-		_, err := account.Position()
-		if err == nil {
+		_, checkErr := account.Position()
+		if checkErr == nil {
 			return
 		}
 	}
