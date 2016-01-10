@@ -1,7 +1,6 @@
 package trade
 
 import (
-	"bountyHunter/util"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -9,6 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/axgle/mahonia"
 	"github.com/mreiferson/go-httpclient"
+	"gotrade/util"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -102,14 +102,14 @@ func (account *Account) Login() (err error) {
 	ioutil.WriteFile(util.GetBasePath()+"/cache/verify.jpg", image, 0644)
 	var code string
 	fmt.Println("input code:")
-	fmt.Scanf("%s", &code)
+	fmt.Scanf("%s\n", &code)
 	var raw = fmt.Sprintf("userType=jy&loginEvent=1&trdpwdEns=%s&macaddr=08-00-27-CE-7E-3E&hddInfo=VB0088e34c-9198b670+&lipInfo=10.0.2.15+&topath=null&accountType=1&userName=%s&servicePwd=%s&trdpwd=%s&vcode=", account.Password1, account.Username, account.Password2, account.Password1)
 	account.logger.Infof("login post code : %s raw : %s", code, raw)
 	req, _ = http.NewRequest("POST", "https://service.htsc.com.cn/service/loginAction.do?method=login", strings.NewReader(raw+code))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Refer", "https://service.htsc.com.cn/service/login.jsp?logout=yes")
 	req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
-	os.Remove("./cache/verify.jpg")
+	os.Remove(util.GetBasePath() + "/cache/verify.jpg")
 	resp, _ = account.client.Do(req)
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -151,15 +151,16 @@ func (account *Account) RefreshUid() {
 }
 
 // 异步挂单买
-func (account *Account) Buy(stock string, price float64, amount int64) (id int64, err error) {
+func (account *Account) Buy(stock string, price float64, amount float64) (id int64, err error) {
 	price = util.Round(price, 3)
+	intAmount := int64(amount)
 	url := "uid=%s&cssweb_type=STOCK_BUY&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=302&fund_account=%s&password=%s&identity_type=&exchange_type=%s&stock_account=%s&stock_code=%s&entrust_amount=%d&entrust_price=%.3f&entrust_prop=0&entrust_bs=1&ram=0.9656887338496745"
-	if substr(stock, 0, 2) == "15" || substr(stock, 0, 2) == "00" || substr(stock, 0, 2) == "30" {
-		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "2", account.Account1, stock, amount, price)
+	if substr(stock, 0, 1) == "1" || substr(stock, 0, 2) == "00" || substr(stock, 0, 2) == "30" {
+		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "2", account.Account1, stock, intAmount, price)
 	} else {
-		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "1", account.Account2, stock, amount, price)
+		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "1", account.Account2, stock, intAmount, price)
 	}
-	account.logger.Infof("begin buy %s %f %d", stock, price, amount)
+	account.logger.Infof("begin buy %s %f %d", stock, price, intAmount)
 	url = account.baseUrl + account.base64encode(url)
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := account.client.Do(req)
@@ -182,22 +183,22 @@ func (account *Account) Buy(stock string, price float64, amount int64) (id int64
 		account.logger.Errorf("buy error %s", result)
 		return 0, errors.New("buy error")
 	}
-	no, _ := strconv.ParseInt(result.Item[0].No, 64)
+	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("buy success op id : %d", no)
 	return no, nil
 }
 
 // 异步挂单卖
-func (account *Account) Sell(stock string, price float64, amount int64) (id int64, err error) {
+func (account *Account) Sell(stock string, price float64, amount float64) (id int64, err error) {
 	price = util.Round(price, 3)
-	// todo
+	intAmount := int64(amount)
 	url := "uid=%s&cssweb_type=STOCK_SALE&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=302&fund_account=%s&password=%s&identity_type=&exchange_type=%s&stock_account=%s&stock_code=%s&entrust_amount=%d&entrust_price=%.3f&entrust_prop=0&entrust_bs=2&ram=0.7360913073644042"
-	if substr(stock, 0, 2) == "15" || substr(stock, 0, 2) == "00" {
-		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "2", account.Account1, stock, amount, price)
+	if substr(stock, 0, 1) == "1" || substr(stock, 0, 2) == "00" {
+		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "2", account.Account1, stock, intAmount, price)
 	} else {
-		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "1", account.Account2, stock, amount, price)
+		url = fmt.Sprintf(url, account.Uid, account.Username, account.Username, account.Password3, "1", account.Account2, stock, intAmount, price)
 	}
-	account.logger.Infof("begin sell %s %f %d", stock, price, amount)
+	account.logger.Infof("begin sell %s %f %d", stock, price, intAmount)
 	url = account.baseUrl + account.base64encode(url)
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := account.client.Do(req)
@@ -220,7 +221,7 @@ func (account *Account) Sell(stock string, price float64, amount int64) (id int6
 		account.logger.Errorf("sell error %s", result)
 		return 0, errors.New("sell error")
 	}
-	no, _ := strconv.ParseInt(result.Item[0].No, 64)
+	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("sell success op id: %d", no)
 	return no, nil
 }
@@ -249,7 +250,7 @@ func (account *Account) Cancel(id int64) (err error) {
 		account.logger.Errorf("cancel error %s", result)
 		return errors.New("cancel error")
 	}
-	no, _ := strconv.ParseInt(result.Item[0].No, 64)
+	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("cancel success op id %d", no)
 	return
 }
@@ -296,8 +297,8 @@ func (account *Account) Position() (data []StockPosition, err error) {
 			stockPosition := StockPosition{}
 			stockPosition.Name = item.Name
 			stockPosition.Code = item.Code
-			stockPosition.Amount, _ = strconv.ParseInt(item.Amount, 64)
-			stockPosition.AvailableAmount, _ = strconv.ParseInt(item.AvailableAmount, 64)
+			stockPosition.Amount, _ = strconv.ParseInt(item.Amount, 10, 64)
+			stockPosition.AvailableAmount, _ = strconv.ParseInt(item.AvailableAmount, 10, 64)
 			stockPosition.FrozenAmount = stockPosition.Amount - stockPosition.AvailableAmount
 			data = append(data, stockPosition)
 		}
@@ -387,9 +388,9 @@ func (account *Account) Pending() (data []Order, err error) {
 		order := Order{}
 		order.Name = item.Name
 		order.Code = item.Code
-		order.Amount, _ = strconv.ParseInt(item.Amount, 64)
-		order.Price, _ = strconv.ParseInt(item.Price, 64)
-		order.Id, _ = strconv.ParseInt(item.Id, 64)
+		order.Amount, _ = strconv.ParseInt(item.Amount, 10, 64)
+		order.Price, _ = strconv.ParseFloat(item.Price, 64)
+		order.Id, _ = strconv.ParseInt(item.Id, 10, 64)
 		if item.Type == "2" {
 			order.Type = "sell"
 		} else {

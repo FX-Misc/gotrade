@@ -1,14 +1,14 @@
 package trade
 
 import (
-	"bountyHunter/util"
+	"gotrade/util"
 	"log"
 	"testing"
 )
 
 func newAccount() *Account {
 	account := &Account{}
-	err := util.YamlFileDecode(util.GetBasePath()+"/config/account.yaml", account)
+	err := util.YamlFileDecode(util.GetBasePath()+"/config/trade.yaml", account)
 	if err != nil {
 		panic(err)
 	}

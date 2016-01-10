@@ -1,10 +1,10 @@
 package market
 
 import (
-	"bountyHunter/util"
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
+	"gotrade/util"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -36,7 +36,7 @@ type QuotationStack struct {
 
 type OrderBook struct {
 	Price  float64
-	Amount int64
+	Amount float64
 }
 
 type Subscriber struct {
@@ -220,9 +220,9 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 		quo.Asks = make([]OrderBook, 10)
 		for index := 0; index < 10; index++ {
 			quo.Bids[index].Price, _ = strconv.ParseFloat(rawLines[index], 64)
-			quo.Bids[index].Amount, _ = strconv.ParseInt(rawLines[10+index], 64)
+			quo.Bids[index].Amount, _ = strconv.ParseFloat(rawLines[10+index], 64)
 			quo.Asks[index].Price, _ = strconv.ParseFloat(rawLines[20+index], 64)
-			quo.Asks[index].Amount, _ = strconv.ParseInt(rawLines[30+index], 64)
+			quo.Asks[index].Amount, _ = strconv.ParseFloat(rawLines[30+index], 64)
 		}
 		return quo, nil
 	} else {
