@@ -3,7 +3,6 @@ package util
 import (
 	"github.com/Sirupsen/logrus"
 	"os"
-	"strings"
 )
 
 var ProjectName = "gotrade"
@@ -21,7 +20,24 @@ func NewLogger(name string) (logger *logrus.Logger) {
 
 func GetBasePath() string {
 	// @todo small hack
-	dir, _ := os.Getwd()
-	split := strings.Split(dir, ProjectName)
-	return split[0] + "/" + ProjectName
+	base, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	if isExist(base) {
+		return base
+	} else if isExist(base + "/..") {
+		return base + "/.."
+	} else if isExist(base + "/../..") {
+		return base + "/../.."
+	} else if isExist(base + "/../../..") {
+		return base + "/../../.."
+	} else {
+		return "."
+	}
+}
+
+func isExist(path string) bool {
+	_, err := os.Stat(path + "/config")
+	return err == nil || os.IsExist(err)
 }

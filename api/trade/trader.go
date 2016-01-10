@@ -131,7 +131,7 @@ func (account *Account) Login() (err error) {
 		account.logger.Error("login error")
 		return errors.New("login error")
 	}
-	ioutil.WriteFile("./cache/"+account.Username+"Uid", []byte(user.Uid), 0644)
+	ioutil.WriteFile(util.GetBasePath()+"/cache/"+account.Username+"Uid", []byte(user.Uid), 0644)
 	return
 }
 
