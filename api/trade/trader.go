@@ -89,7 +89,10 @@ func (account *Account) Login() (err error) {
 	if cacheUid != "" {
 		account.logger.Info("read cache uid : " + cacheUid)
 		account.Uid = cacheUid
-		return
+		_, err := account.Position()
+		if err == nil {
+			return
+		}
 	}
 	account.logger.Info("get verfiy code")
 	loginUrl := "https://service.htsc.com.cn/service/login.jsp"
