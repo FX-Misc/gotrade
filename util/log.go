@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var ProjectName = "gotrade"
+
 func NewLogger(name string) (logger *logrus.Logger) {
 	logger = logrus.New()
 	logOutput, err := os.OpenFile(GetBasePath()+"/log/"+name+".log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -20,6 +22,6 @@ func NewLogger(name string) (logger *logrus.Logger) {
 func GetBasePath() string {
 	// @todo small hack
 	dir, _ := os.Getwd()
-	split := strings.Split(dir, "gotrade")
-	return split[0] + "/gotrade"
+	split := strings.Split(dir, ProjectName)
+	return split[0] + "/" + ProjectName
 }

@@ -8,6 +8,7 @@ import (
 
 func newAccount() *Account {
 	account := &Account{}
+	util.ProjectName = "gotrade"
 	err := util.YamlFileDecode(util.GetBasePath()+"/config/trade.yaml", account)
 	if err != nil {
 		panic(err)
