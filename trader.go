@@ -1,4 +1,4 @@
-package trade
+package gotrade
 
 import (
 	"encoding/base64"
@@ -8,7 +8,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/axgle/mahonia"
 	"github.com/mreiferson/go-httpclient"
-	"gotrade/util"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -70,7 +69,7 @@ type Result struct {
 // 登录
 func (account *Account) Login() (err error) {
 	cookieJar, _ := cookiejar.New(nil)
-	account.logger = util.NewLogger("trader")
+	account.logger = NewLogger("trader")
 	transport := &httpclient.Transport{
 		ConnectTimeout:        3 * time.Second,
 		RequestTimeout:        3 * time.Second,
@@ -84,13 +83,14 @@ func (account *Account) Login() (err error) {
 	}
 	account.logger.Info("begin login")
 	account.baseUrl = "https://tradegw.htsc.com.cn/?"
-	cacheByte, _ := ioutil.ReadFile(util.GetBasePath() + "/cache/" + account.Username + "Uid")
+	cacheByte, _ := ioutil.ReadFile(GetBasePath() + "/cache/" + account.Username + "Uid")
 	cacheUid := string(cacheByte)
 	if cacheUid != "" {
 		account.logger.Info("read cache uid : " + cacheUid)
 		account.Uid = cacheUid
 		_, checkErr := account.Position()
 		if checkErr == nil {
+			account.RefreshUid()
 			return
 		}
 	}
@@ -102,7 +102,7 @@ func (account *Account) Login() (err error) {
 	resp, _ = account.client.Do(req)
 	defer resp.Body.Close()
 	image, _ := ioutil.ReadAll(resp.Body)
-	ioutil.WriteFile(util.GetBasePath()+"/cache/verify.jpg", image, 0644)
+	ioutil.WriteFile(GetBasePath()+"/cache/verify.jpg", image, 0644)
 	var code string
 	fmt.Println("input code:")
 	fmt.Scanf("%s\n", &code)
@@ -112,7 +112,7 @@ func (account *Account) Login() (err error) {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Refer", "https://service.htsc.com.cn/service/login.jsp?logout=yes")
 	req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
-	os.Remove(util.GetBasePath() + "/cache/verify.jpg")
+	os.Remove(GetBasePath() + "/cache/verify.jpg")
 	resp, _ = account.client.Do(req)
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -134,7 +134,8 @@ func (account *Account) Login() (err error) {
 		account.logger.Error("login error")
 		return errors.New("login error")
 	}
-	ioutil.WriteFile(util.GetBasePath()+"/cache/"+account.Username+"Uid", []byte(user.Uid), 0644)
+	ioutil.WriteFile(GetBasePath()+"/cache/"+account.Username+"Uid", []byte(user.Uid), 0644)
+	account.RefreshUid()
 	return
 }
 
@@ -142,7 +143,7 @@ func (account *Account) Login() (err error) {
 func (account *Account) RefreshUid() {
 	go func() {
 		for {
-			log.Println("use uid")
+			account.logger.Info("refresh uid success" + user.Uid)
 			_, err := account.Position()
 			if err != nil {
 				log.Println("uid maybe out of date: ", err)
@@ -155,7 +156,7 @@ func (account *Account) RefreshUid() {
 
 // 异步挂单买
 func (account *Account) Buy(stock string, price float64, amount float64) (id int64, err error) {
-	price = util.Round(price, 3)
+	price = Round(price, 3)
 	intAmount := int64(amount)
 	url := "uid=%s&cssweb_type=STOCK_BUY&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=302&fund_account=%s&password=%s&identity_type=&exchange_type=%s&stock_account=%s&stock_code=%s&entrust_amount=%d&entrust_price=%.3f&entrust_prop=0&entrust_bs=1&ram=0.9656887338496745"
 	if substr(stock, 0, 1) == "1" || substr(stock, 0, 2) == "00" || substr(stock, 0, 2) == "30" {
@@ -193,7 +194,7 @@ func (account *Account) Buy(stock string, price float64, amount float64) (id int
 
 // 异步挂单卖
 func (account *Account) Sell(stock string, price float64, amount float64) (id int64, err error) {
-	price = util.Round(price, 3)
+	price = Round(price, 3)
 	intAmount := int64(amount)
 	url := "uid=%s&cssweb_type=STOCK_SALE&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=302&fund_account=%s&password=%s&identity_type=&exchange_type=%s&stock_account=%s&stock_code=%s&entrust_amount=%d&entrust_price=%.3f&entrust_prop=0&entrust_bs=2&ram=0.7360913073644042"
 	if substr(stock, 0, 1) == "1" || substr(stock, 0, 2) == "00" {
@@ -459,8 +460,24 @@ func (account *Account) Pending() (data []Order, err error) {
 // 	return
 // }
 
+// 延迟自动撤单
+func (account *Account) DeferCancel(id int64, afterSecond int64) {
+	timer := time.NewTimer(time.Duration(afterSecond) * time.Second)
+	go func() {
+		<-timer.C
+		account.logger.Warningf("defer cancel occur cancel id : %d", id)
+		err := account.Cancel(id)
+		if err != nil {
+			account.logger.Warning("defer cancel failed maybe has deal")
+		} else {
+			account.logger.Warning("defer cancel success")
+		}
+	}()
+	account.logger.Warningf("add defer cancel success id : %d", id)
+}
+
 func (account *Account) clearCache() {
-	os.Remove(util.GetBasePath() + "/cache/" + account.Username + "Uid")
+	os.Remove(GetBasePath() + "/cache/" + account.Username + "Uid")
 }
 
 func (account *Account) base64decode(str string) string {

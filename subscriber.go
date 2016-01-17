@@ -1,10 +1,9 @@
-package market
+package gotrade
 
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
-	"gotrade/util"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -63,7 +62,7 @@ type Api struct {
 
 func New(configPath string) (subscriber *Subscriber) {
 	config := &Configuration{}
-	err := util.YamlFileDecode(configPath, config)
+	err := YamlFileDecode(configPath, config)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +71,7 @@ func New(configPath string) (subscriber *Subscriber) {
 	subscriber.strategyMap = make(map[string][]string)
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
 	subscriber.IP = config.IP
-	subscriber.logger = util.NewLogger("subscriber")
+	subscriber.logger = NewLogger("subscriber")
 	return
 }
 

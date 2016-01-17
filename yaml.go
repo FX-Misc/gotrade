@@ -1,4 +1,4 @@
-package util
+package gotrade
 
 import (
 	"gopkg.in/yaml.v2"

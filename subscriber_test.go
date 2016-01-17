@@ -1,4 +1,4 @@
-package market
+package gotrade
 
 import (
 	"log"

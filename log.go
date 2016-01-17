@@ -1,11 +1,9 @@
-package util
+package gotrade
 
 import (
 	"github.com/Sirupsen/logrus"
 	"os"
 )
-
-var ProjectName = "gotrade"
 
 func NewLogger(name string) (logger *logrus.Logger) {
 	logger = logrus.New()
