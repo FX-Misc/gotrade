@@ -301,8 +301,8 @@ func (account *Account) Position() (data []StockPosition, err error) {
 			stockPosition := StockPosition{}
 			stockPosition.Name = item.Name
 			stockPosition.Code = item.Code
-			stockPosition.Amount, _ = strconv.ParseInt(item.Amount, 10, 64)
-			stockPosition.AvailableAmount, _ = strconv.ParseInt(item.AvailableAmount, 10, 64)
+			stockPosition.Amount, _ = strconv.ParseFloat(item.Amount, 64)
+			stockPosition.AvailableAmount, _ = strconv.ParseFloat(item.AvailableAmount, 64)
 			stockPosition.FrozenAmount = stockPosition.Amount - stockPosition.AvailableAmount
 			data = append(data, stockPosition)
 		}
@@ -392,7 +392,7 @@ func (account *Account) Pending() (data []Order, err error) {
 		order := Order{}
 		order.Name = item.Name
 		order.Code = item.Code
-		order.Amount, _ = strconv.ParseInt(item.Amount, 10, 64)
+		order.Amount, _ = strconv.ParseFloat(item.Amount, 64)
 		order.Price, _ = strconv.ParseFloat(item.Price, 64)
 		order.Id, _ = strconv.ParseInt(item.Id, 10, 64)
 		if item.Type == "2" {
