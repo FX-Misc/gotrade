@@ -143,7 +143,7 @@ func (account *Account) Login() (err error) {
 func (account *Account) RefreshUid() {
 	go func() {
 		for {
-			account.logger.Info("refresh uid success" + user.Uid)
+			account.logger.Info("refresh uid success uid : " + account.Uid)
 			_, err := account.Position()
 			if err != nil {
 				log.Println("uid maybe out of date: ", err)
