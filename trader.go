@@ -20,11 +20,11 @@ import (
 )
 
 type StockPosition struct {
-	Code            string `yaml:"-"`
-	Name            string `yaml:"-"`
-	Amount          int64  `yaml:"amount"`
-	AvailableAmount int64  `yaml:"available_amount"`
-	FrozenAmount    int64  `yaml:"frozen_amount"`
+	Code            string  `yaml:"-"`
+	Name            string  `yaml:"-"`
+	Amount          float64 `yaml:"amount"`
+	AvailableAmount float64 `yaml:"available_amount"`
+	FrozenAmount    float64 `yaml:"frozen_amount"`
 }
 
 type Balance struct {
@@ -36,7 +36,7 @@ type Balance struct {
 type Order struct {
 	Code   string
 	Name   string
-	Amount int64
+	Amount float64
 	Price  float64
 	Id     int64
 	Type   string
