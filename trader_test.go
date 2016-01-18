@@ -7,11 +7,7 @@ import (
 )
 
 func newAccount() *gotrade.Account {
-	account := &gotrade.Account{}
-	err := gotrade.YamlFileDecode("./config/trade.yaml", account)
-	if err != nil {
-		panic(err)
-	}
+	account := gotrade.NewAccount("./config/trade.yaml")
 	account.Login()
 	return account
 }
@@ -26,8 +22,8 @@ func Test_Postion(t *testing.T) {
 	log.Println(a.Position())
 }
 
-func Test_Buy(t *testing.T) {
-	a := newAccount()
-	id, err := a.Buy("150260", 1.430, 100)
-	log.Println(id, err)
-}
+// func Test_Buy(t *testing.T) {
+// 	a := newAccount()
+// 	id, err := a.Buy("150260", 1.430, 100)
+// 	log.Println(id, err)
+// }

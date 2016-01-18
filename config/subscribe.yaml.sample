@@ -1,4 +1,5 @@
 ---
 ip: "127.0.0.1" # 外网 ip
 cookie: "xxx" # 新浪 l2 cookie
-ua: "user agent"
+ua: "user agent" # user-agent
+token_server: "http://current.sina.com.cn/auth/api/jsonp.php/getToken/AuthSign_Service.getSignCode?query=hq_pjb&ip=%s&_=0.9039749705698342&list=%s&retcode=0" # api

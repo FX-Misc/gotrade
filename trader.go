@@ -66,10 +66,20 @@ type Result struct {
 	Item         []Data `json:"item"`
 }
 
+func NewAccount(configPath string) (account *Account) {
+	account = &Account{}
+	account.logger = NewLogger("trader")
+	err := YamlFileDecode(configPath, account)
+	if err != nil {
+		account.logger.Error("init account error")
+		panic(err)
+	}
+	return
+}
+
 // 登录
 func (account *Account) Login() (err error) {
 	cookieJar, _ := cookiejar.New(nil)
-	account.logger = NewLogger("trader")
 	transport := &httpclient.Transport{
 		ConnectTimeout:        3 * time.Second,
 		RequestTimeout:        3 * time.Second,
@@ -114,8 +124,8 @@ func (account *Account) Login() (err error) {
 	req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
 	os.Remove(GetBasePath() + "/cache/verify.jpg")
 	resp, _ = account.client.Do(req)
-	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	account.logger.Info("try to get uid")
 	req, _ = http.NewRequest("GET", "https://service.htsc.com.cn/service/flashbusiness_new3.jsp?etfCode=", nil)
 	resp, _ = account.client.Do(req)
@@ -151,7 +161,6 @@ func (account *Account) RefreshUid() {
 			time.Sleep(time.Second * 5)
 		}
 	}()
-	select {}
 }
 
 // 异步挂单买
