@@ -14,7 +14,9 @@ import (
 )
 
 type Configuration struct {
-	IP string `yaml:"ip"`
+	IP     string `yaml:"ip"`
+	Cookie string `yaml:"cookie"`
+	UA     string `yaml:"ua"`
 }
 
 type Quotation struct {
@@ -41,6 +43,8 @@ type OrderBook struct {
 type Subscriber struct {
 	Params           string
 	IP               string
+	Cookie           string
+	UA               string
 	token            string
 	cache            map[string]*Quotation
 	logger           *logrus.Logger
@@ -49,7 +53,7 @@ type Subscriber struct {
 	strategyMap      map[string][]string
 }
 
-type Api struct {
+type sinaApi struct {
 	Params           string
 	Cookie           string
 	IP               string
@@ -71,6 +75,8 @@ func New(configPath string) (subscriber *Subscriber) {
 	subscriber.strategyMap = make(map[string][]string)
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
 	subscriber.IP = config.IP
+	subscriber.Cookie = config.Cookie
+	subscriber.UA = config.UA
 	subscriber.logger = NewLogger("subscriber")
 	return
 }
@@ -112,9 +118,11 @@ func (sbr *Subscriber) Run() {
 			end = length
 		}
 		params := strings.Join(sbr.codeList[start:end], ",")
-		api := Api{
+		api := sinaApi{
 			Params:           params,
 			IP:               sbr.IP,
+			Cookie:           sbr.Cookie,
+			UA:               sbr.UA,
 			quotationChanMap: sbr.quotationChanMap,
 			strategyMap:      sbr.strategyMap,
 		}
@@ -127,7 +135,7 @@ func (sbr *Subscriber) Run() {
 	}
 }
 
-func (api *Api) Run() {
+func (api *sinaApi) Run() {
 	api.refreshToken()
 	go func() {
 		for {
@@ -154,7 +162,7 @@ func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotatio
 	return
 }
 
-func (api *Api) connect() error {
+func (api *sinaApi) connect() error {
 	url := fmt.Sprintf("ws://ff.sinajs.cn/wskt?token=%s&list=%s", api.token, api.Params)
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	api.cache = make(map[string]*Quotation)
@@ -195,7 +203,7 @@ func (api *Api) connect() error {
 	}
 }
 
-func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
+func (api *sinaApi) parseQuotation(rawLine string) (*Quotation, error) {
 	quo := &Quotation{}
 	rawLines := strings.SplitN(rawLine, "=", 2)
 	if len(rawLines) < 2 {
@@ -241,7 +249,7 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 	}
 }
 
-func (api *Api) refreshToken() error {
+func (api *sinaApi) refreshToken() error {
 	log.Println("refresh token")
 	client := &http.Client{}
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
@@ -249,6 +257,8 @@ func (api *Api) refreshToken() error {
 	}
 	url := fmt.Sprintf("http://current.sina.com.cn/auth/api/jsonp.php/getToken/AuthSign_Service.getSignCode?query=hq_pjb&ip=%s&_=0.9039749705698342&list=%s&retcode=0", api.IP, api.Params)
 	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Add("cookie", api.Cookie)
+	req.Header.Add("user-agent", api.Cookie)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

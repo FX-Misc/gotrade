@@ -1,0 +1,4 @@
+---
+ip: "127.0.0.1" # 外网 ip
+cookie: "xxx" # 新浪 l2 cookie
+ua: "user agent"
