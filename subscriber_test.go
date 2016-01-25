@@ -1,22 +1,20 @@
 package gotrade
 
 import (
-	"gotrade"
-	"log"
 	"testing"
 )
 
-func newSubscriber() *gotrade.Subscriber {
-	subscriber := gotrade.NewSubscriber("./config/subscribe.yaml")
-	return subscriber
+var sbr *Subscriber
+
+func init() {
+	sbr = NewSubscriber("config/subscribe.yaml")
 }
 
-func Test_Run(t *testing.T) {
-	subr := newSubscriber()
+func TestSubscribe(t *testing.T) {
 	codeList := []string{"600000", "502028", "150167"}
-	quoChan := subr.Subscribe("test", codeList)
-	go subr.Run()
+	quoChan := sbr.Subscribe("test", codeList)
+	go sbr.Run()
 	for quo := range quoChan {
-		log.Println(quo)
+		t.Log(quo)
 	}
 }

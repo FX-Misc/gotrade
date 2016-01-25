@@ -246,7 +246,11 @@ func (account *Account) Cancel(id int64) (err error) {
 	account.logger.Infof("begin cancel %d", id)
 	url = account.baseUrl + account.base64encode(url)
 	req, _ := http.NewRequest("GET", url, nil)
-	resp, _ := account.client.Do(req)
+	resp, err := account.client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	jsonString := account.base64decode(string(body))
 	result := Result{}

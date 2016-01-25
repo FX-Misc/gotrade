@@ -77,10 +77,13 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	subscriber.codeList = []string{}
 	subscriber.strategyMap = make(map[string][]string)
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
-	subscriber.IP = config.IP
 	subscriber.Cookie = config.Cookie
 	subscriber.UA = config.UA
-	subscriber.getExternalIp()
+	err = subscriber.getExternalIp()
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
 	subscriber.logger = NewLogger("subscriber")
 	return
@@ -264,10 +267,14 @@ func (api *sinaApi) refreshToken() error {
 		api.Params = "2cn_sh502014," + api.Params
 	}
 	url := fmt.Sprintf(api.TokenServer, api.IP, api.Params)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("cookie", api.Cookie)
-	req.Header.Add("user-agent", api.Cookie)
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("User-Agent", api.UA)
+	req.Header.Add("Cookie", api.Cookie)
+	log.Println(api.UA, api.Cookie)
+	req, err = http.NewRequest("GET", url, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -330,21 +337,22 @@ func (qs *QuotationStack) All() ([]*Quotation, error) {
 	return qs.quotations, nil
 }
 
-func (subscriber *Subscriber) getExternalIp() {
+func (subscriber *Subscriber) getExternalIp() error {
 	resp, err := http.Get("http://1212.ip138.com/ic.asp")
 	if err != nil {
-		return
+		return err
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
 	if err != nil {
-		return
+		return err
 	}
 	re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
 	result := re.FindAllString(string(string(b)), -1)
 	if len(result) == 1 {
 		subscriber.IP = result[0]
+		return nil
 	}
-	return
+	return fmt.Errorf("get external IP failed")
 }
