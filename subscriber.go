@@ -43,10 +43,10 @@ type OrderBook struct {
 
 type Subscriber struct {
 	Params           string
+	TokenServer      string
 	IP               string
 	Cookie           string
 	UA               string
-	TokenServer      string
 	token            string
 	cache            map[string]*Quotation
 	logger           *logrus.Logger
@@ -55,12 +55,12 @@ type Subscriber struct {
 	strategyMap      map[string][]string
 }
 
-type sinaApi struct {
+type Api struct {
 	Params           string
 	Cookie           string
 	IP               string
-	TokenServer      string
 	UA               string
+	TokenServer      string
 	token            string
 	cache            map[string]*Quotation
 	quotationChanMap map[string]chan *Quotation
@@ -105,7 +105,7 @@ func (sbr *Subscriber) Run() {
 		if sbr.codeList[key][0:2] == "15" || sbr.codeList[key][0:2] == "00" || sbr.codeList[key][0:2] == "30" {
 			sbr.codeList[key] = "2cn_sz" + sbr.codeList[key]
 		}
-		if sbr.codeList[key][0:2] == "60" || sbr.codeList[key][0:2] == "50" {
+		if sbr.codeList[key][0:2] == "60" || sbr.codeList[key][0:1] == "5" {
 			sbr.codeList[key] = "2cn_sh" + sbr.codeList[key]
 		}
 		if sbr.codeList[key][0:3] == "i39" {
@@ -116,6 +116,7 @@ func (sbr *Subscriber) Run() {
 		}
 	}
 	log.Println(sbr.codeList)
+
 	start := 0
 	end := 0
 	length := len(sbr.codeList)
@@ -125,7 +126,7 @@ func (sbr *Subscriber) Run() {
 			end = length
 		}
 		params := strings.Join(sbr.codeList[start:end], ",")
-		api := sinaApi{
+		api := Api{
 			Params:           params,
 			IP:               sbr.IP,
 			Cookie:           sbr.Cookie,
@@ -143,7 +144,7 @@ func (sbr *Subscriber) Run() {
 	}
 }
 
-func (api *sinaApi) Run() {
+func (api *Api) Run() {
 	api.refreshToken()
 	go func() {
 		for {
@@ -170,9 +171,28 @@ func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotatio
 	return
 }
 
-func (api *sinaApi) connect() error {
+func (s *Subscriber) getExternalIp() error {
+	resp, err := http.Get("https://ff.sinajs.cn/?_=1453697286404&list=sys_clientip")
+	if err != nil {
+		return err
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return err
+	}
+	re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
+	result := re.FindAllString(string(string(b)), -1)
+	if len(result) == 1 {
+		s.IP = result[0]
+		return nil
+	}
+	return fmt.Errorf("get external ip failed")
+}
+
+func (api *Api) connect() error {
 	url := fmt.Sprintf("ws://ff.sinajs.cn/wskt?token=%s&list=%s", api.token, api.Params)
-	log.Println(url)
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	api.cache = make(map[string]*Quotation)
 	if err != nil {
@@ -186,7 +206,6 @@ func (api *sinaApi) connect() error {
 			return nil
 		}
 		raw := string(message)
-		log.Println(raw)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			return fmt.Errorf("auth timeout")
 		}
@@ -204,6 +223,7 @@ func (api *sinaApi) connect() error {
 				}
 				if quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					strategyNameList := api.strategyMap["i"+quo.Code]
+					quo.Code = "i" + quo.Code
 					for _, strategyName := range strategyNameList {
 						api.quotationChanMap[strategyName] <- quo
 					}
@@ -213,7 +233,7 @@ func (api *sinaApi) connect() error {
 	}
 }
 
-func (api *sinaApi) parseQuotation(rawLine string) (*Quotation, error) {
+func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 	quo := &Quotation{}
 	rawLines := strings.SplitN(rawLine, "=", 2)
 	if len(rawLines) < 2 {
@@ -248,6 +268,9 @@ func (api *sinaApi) parseQuotation(rawLine string) (*Quotation, error) {
 		}
 		quo.Code = rawLines[0][2:8]
 		rawLines = strings.Split(rawLines[1], ",")
+		if len(rawLines) < 32 {
+			return nil, fmt.Errorf("unable parse data")
+		}
 		quo.Name = rawLines[0]
 		quo.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", rawLines[30], rawLines[31]))
 		quo.Now = time.Now()
@@ -259,10 +282,9 @@ func (api *sinaApi) parseQuotation(rawLine string) (*Quotation, error) {
 	}
 }
 
-func (api *sinaApi) refreshToken() error {
+func (api *Api) refreshToken() error {
 	log.Println("refresh token")
 	client := &http.Client{}
-
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
 		api.Params = "2cn_sh502014," + api.Params
 	}
@@ -273,19 +295,18 @@ func (api *sinaApi) refreshToken() error {
 	}
 	req.Header.Add("User-Agent", api.UA)
 	req.Header.Add("Cookie", api.Cookie)
-	log.Println(api.UA, api.Cookie)
-	req, err = http.NewRequest("GET", url, nil)
+	req, _ = http.NewRequest("GET", url, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-	body, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
 	re := regexp.MustCompile(`result:"(.+?)"`)
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
-		log.Printf("get token %s", api.token)
+		log.Printf("get token %s", body)
 		return nil
 	} else {
 		return fmt.Errorf("can't match token")
@@ -335,24 +356,4 @@ func (qs *QuotationStack) All() ([]*Quotation, error) {
 		return []*Quotation{}, fmt.Errorf("stack required %d but is %d", qs.Length, len(qs.quotations))
 	}
 	return qs.quotations, nil
-}
-
-func (subscriber *Subscriber) getExternalIp() error {
-	resp, err := http.Get("http://1212.ip138.com/ic.asp")
-	if err != nil {
-		return err
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return err
-	}
-	re := regexp.MustCompile(`\d+\.\d+\.\d+\.\d+`)
-	result := re.FindAllString(string(string(b)), -1)
-	if len(result) == 1 {
-		subscriber.IP = result[0]
-		return nil
-	}
-	return fmt.Errorf("get external IP failed")
 }
