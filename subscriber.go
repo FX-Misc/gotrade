@@ -25,7 +25,7 @@ type Quotation struct {
 	Name        string
 	PreClose    float64
 	Close       float64
-	Volumn      float64
+	Volume      float64
 	TradeAmount float64
 	Time        time.Time
 	Now         time.Time
@@ -255,7 +255,7 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 		quo.PreClose, _ = strconv.ParseFloat(rawLines[3], 64)
 		quo.Close, _ = strconv.ParseFloat(rawLines[7], 64)
 		quo.TradeAmount, _ = strconv.ParseFloat(rawLines[10], 64)
-		quo.Volumn, _ = strconv.ParseFloat(rawLines[11], 64)
+		quo.Volume, _ = strconv.ParseFloat(rawLines[11], 64)
 		rawLines = rawLines[length-40 : length]
 		quo.Bids = make([]OrderBook, 10)
 		quo.Asks = make([]OrderBook, 10)
