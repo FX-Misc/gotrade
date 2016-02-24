@@ -2,6 +2,7 @@ package gotrade
 
 import (
 	"gotrade"
+	"log"
 	"testing"
 )
 
@@ -16,6 +17,6 @@ func Test_Run(t *testing.T) {
 	quoChan := sbr.Subscribe("test", codeList)
 	go sbr.Run()
 	for quo := range quoChan {
-		t.Log(quo)
+		log.Println(quo)
 	}
 }

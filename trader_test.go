@@ -17,6 +17,8 @@ func Test_Login(t *testing.T) {
 
 func Test_Postion(t *testing.T) {
 	t.Log(account.Position())
+	t.Log(account.Balance())
+
 }
 
 // func Test_Buy(t *testing.T) {

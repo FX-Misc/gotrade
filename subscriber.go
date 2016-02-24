@@ -21,14 +21,16 @@ type Configuration struct {
 }
 
 type Quotation struct {
-	Code     string
-	Name     string
-	PreClose float64
-	Close    float64
-	Time     time.Time
-	Now      time.Time
-	Bids     []OrderBook
-	Asks     []OrderBook
+	Code        string
+	Name        string
+	PreClose    float64
+	Close       float64
+	Volumn      float64
+	TradeAmount float64
+	Time        time.Time
+	Now         time.Time
+	Bids        []OrderBook
+	Asks        []OrderBook
 }
 
 type QuotationStack struct {
@@ -234,6 +236,7 @@ func (api *Api) connect() error {
 }
 
 func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
+	// log.Println(rawLine)
 	quo := &Quotation{}
 	rawLines := strings.SplitN(rawLine, "=", 2)
 	if len(rawLines) < 2 {
@@ -251,7 +254,8 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 		quo.Now = time.Now()
 		quo.PreClose, _ = strconv.ParseFloat(rawLines[3], 64)
 		quo.Close, _ = strconv.ParseFloat(rawLines[7], 64)
-
+		quo.TradeAmount, _ = strconv.ParseFloat(rawLines[10], 64)
+		quo.Volumn, _ = strconv.ParseFloat(rawLines[11], 64)
 		rawLines = rawLines[length-40 : length]
 		quo.Bids = make([]OrderBook, 10)
 		quo.Asks = make([]OrderBook, 10)
