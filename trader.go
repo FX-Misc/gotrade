@@ -1,9 +1,9 @@
 package gotrade
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/axgle/mahonia"
@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -108,44 +109,71 @@ func (account *Account) Login() (err error) {
 	loginUrl := "https://service.htsc.com.cn/service/login.jsp"
 	req, _ := http.NewRequest("GET", loginUrl, nil)
 	resp, _ := account.client.Do(req)
-	req, _ = http.NewRequest("GET", "https://service.htsc.com.cn/service/pic/verifyCodeImage.jsp", nil)
-	resp, _ = account.client.Do(req)
-	defer resp.Body.Close()
-	image, _ := ioutil.ReadAll(resp.Body)
-	ioutil.WriteFile(GetBasePath()+"/cache/verify.jpg", image, 0644)
-	var code string
-	fmt.Println("input code:")
-	fmt.Scanf("%s\n", &code)
-	var raw = fmt.Sprintf("userType=jy&loginEvent=1&trdpwdEns=%s&macaddr=08-00-27-CE-7E-3E&hddInfo=VB0088e34c-9198b670+&lipInfo=10.0.2.15+&topath=null&accountType=1&userName=%s&servicePwd=%s&trdpwd=%s&vcode=", account.Password1, account.Username, account.Password2, account.Password1)
-	account.logger.Infof("login post code : %s raw : %s", code, raw)
-	req, _ = http.NewRequest("POST", "https://service.htsc.com.cn/service/loginAction.do?method=login", strings.NewReader(raw+code))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Refer", "https://service.htsc.com.cn/service/login.jsp?logout=yes")
-	req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
-	os.Remove(GetBasePath() + "/cache/verify.jpg")
-	resp, _ = account.client.Do(req)
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	account.logger.Info("try to get uid")
-	req, _ = http.NewRequest("GET", "https://service.htsc.com.cn/service/flashbusiness_new3.jsp?etfCode=", nil)
-	resp, _ = account.client.Do(req)
-	body, _ = ioutil.ReadAll(resp.Body)
-	re := regexp.MustCompile(`var\ data\ =\ "(.+?)"`)
-	result := re.FindAllStringSubmatch(string(body), 1)
-	data, _ := base64.StdEncoding.DecodeString(result[0][1])
-	type User struct {
-		Uid string `json:"uid"`
+	var uid string
+	stdOut := bytes.Buffer{}
+	for {
+		req, _ = http.NewRequest("GET", "https://service.htsc.com.cn/service/pic/verifyCodeImage.jsp", nil)
+		resp, _ = account.client.Do(req)
+		defer resp.Body.Close()
+		image, _ := ioutil.ReadAll(resp.Body)
+		ioutil.WriteFile(GetBasePath()+"/cache/verify.jpg", image, 0644)
+		var code string
+		cmd := exec.Command("java", "-jar", GetBasePath()+"/thirdparty/getcode_jdk1.5.jar", GetBasePath()+"/cache/verify.jpg")
+		stdOut.Reset()
+		cmd.Stdout = &stdOut
+		if err := cmd.Run(); err == nil {
+			stdStr := stdOut.String()
+			length := len(stdStr)
+			if length < 32 {
+				log.Printf("recognize captcha failed %s", stdStr)
+				continue
+			}
+			code = strings.ToLower(stdStr[length-5 : length-1])
+			log.Printf("recognize captcha %s", code)
+		}
+		var raw = fmt.Sprintf("userType=jy&loginEvent=1&trdpwdEns=%s&macaddr=08-00-27-CE-7E-3E&hddInfo=VB0088e34c-9198b670+&lipInfo=10.0.2.15+&topath=null&accountType=1&userName=%s&servicePwd=%s&trdpwd=%s&vcode=", account.Password1, account.Username, account.Password2, account.Password1)
+		account.logger.Infof("login post code : %s raw : %s", code, raw)
+		req, _ = http.NewRequest("POST", "https://service.htsc.com.cn/service/loginAction.do?method=login", strings.NewReader(raw+code))
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Add("Refer", "https://service.htsc.com.cn/service/login.jsp?logout=yes")
+		req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
+		os.Remove(GetBasePath() + "/cache/verify.jpg")
+		resp, _ = account.client.Do(req)
+		body, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		account.logger.Info("try to get uid")
+		req, _ = http.NewRequest("GET", "https://service.htsc.com.cn/service/flashbusiness_new3.jsp?etfCode=", nil)
+		resp, _ = account.client.Do(req)
+		body, _ = ioutil.ReadAll(resp.Body)
+		re := regexp.MustCompile(`var\ data\ =\ "(.+?)"`)
+		result := re.FindAllStringSubmatch(string(body), 1)
+		if len(result) < 1 || len(result[0]) < 2 {
+			log.Printf("match uid failed %s", body)
+			continue
+		}
+		data, err := base64.StdEncoding.DecodeString(result[0][1])
+		if err != nil {
+			log.Printf("decode uid failed %s", err)
+			continue
+		}
+		type User struct {
+			Uid string `json:"uid"`
+		}
+		user := User{}
+		json.Unmarshal([]byte(data), &user)
+		account.Uid = user.Uid
+		account.logger.Info("get uid success" + user.Uid)
+		if user.Uid == "" {
+			account.logger.Error("login error")
+			return fmt.Errorf("login error")
+		} else {
+			uid = user.Uid
+			log.Printf("get uid %s", uid)
+			break
+		}
 	}
-	user := User{}
-	json.Unmarshal([]byte(data), &user)
-	account.Uid = user.Uid
-	account.logger.Info("get uid success" + user.Uid)
-	if user.Uid == "" {
-		account.logger.Error("login error")
-		return errors.New("login error")
-	}
-	ioutil.WriteFile(GetBasePath()+"/cache/"+account.Username+"Uid", []byte(user.Uid), 0644)
-	account.RefreshUid()
+	ioutil.WriteFile(GetBasePath()+"/cache/"+account.Username+"Uid", []byte(uid), 0644)
+	//go account.RefreshUid()
 	return
 }
 
@@ -194,7 +222,7 @@ func (account *Account) Buy(stock string, price float64, amount float64) (id int
 	if result.ErrorCode != "success" {
 		log.Printf("buy error %v", result)
 		account.logger.Errorf("buy error %s", result)
-		return 0, errors.New("buy error")
+		return 0, fmt.Errorf("buy error")
 	}
 	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("buy success op id : %d", no)
@@ -232,7 +260,7 @@ func (account *Account) Sell(stock string, price float64, amount float64) (id in
 	if result.ErrorCode != "success" {
 		log.Printf("sell error %v", result)
 		account.logger.Errorf("sell error %s", result)
-		return 0, errors.New("sell error")
+		return 0, fmt.Errorf("sell error")
 	}
 	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("sell success op id: %d", no)
@@ -259,13 +287,13 @@ func (account *Account) Cancel(id int64) (err error) {
 		log.Println("token error")
 		account.logger.Error("cancel token error")
 		account.clearCache()
-		err = errors.New("token error")
+		err = fmt.Errorf("token error")
 		return
 	}
 	if result.ErrorCode != "success" {
 		log.Printf("cancel error %v", result)
 		account.logger.Errorf("cancel error %s", result)
-		return errors.New("cancel error")
+		return fmt.Errorf("cancel error")
 	}
 	no, _ := strconv.ParseInt(result.Item[0].No, 10, 64)
 	account.logger.Infof("cancel success op id %d", no)
@@ -305,7 +333,7 @@ func (account *Account) Position() (data []StockPosition, err error) {
 		log.Println("token error")
 		account.logger.Error("position token error")
 		account.clearCache()
-		err = errors.New("token error")
+		err = fmt.Errorf("token error")
 		return
 	}
 	if len(message.Items) > 1 {
@@ -348,7 +376,7 @@ func (account *Account) Balance() (data Balance, err error) {
 	if message.ErrorMessage == "请重新登录" {
 		log.Println("token error")
 		account.clearCache()
-		err = errors.New("token error")
+		err = fmt.Errorf("token error")
 		return
 	}
 	data.Balance, _ = strconv.ParseFloat(message.Item[0].Balance, 64)
@@ -394,7 +422,7 @@ func (account *Account) Pending() (data []Order, err error) {
 	if message.ErrorMessage == "请重新登录" {
 		log.Println("token error")
 		account.clearCache()
-		err = errors.New("token error")
+		err = fmt.Errorf("token error")
 		return
 	}
 	if len(message.Items) == 0 {
