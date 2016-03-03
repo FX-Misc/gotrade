@@ -102,7 +102,7 @@ func (account *Account) Login() (err error) {
 		account.Uid = cacheUid
 		_, checkErr := account.Position()
 		if checkErr == nil {
-			account.RefreshUid()
+			account.refreshUid()
 			return
 		}
 	}
@@ -174,12 +174,12 @@ func (account *Account) Login() (err error) {
 		}
 	}
 	ioutil.WriteFile(GetBasePath()+"/cache/"+account.Username+"Uid", []byte(uid), 0644)
-	//go account.RefreshUid()
+	account.refreshUid()
 	return
 }
 
 // 定时刷新使UID不过期
-func (account *Account) RefreshUid() {
+func (account *Account) refreshUid() {
 	go func() {
 		for {
 			account.logger.Info("refresh uid success uid : " + account.Uid)
