@@ -16,7 +16,7 @@ func Test_Login(t *testing.T) {
 }
 
 func Test_Postion(t *testing.T) {
-	t.Log(account.Position())
+	t.Log(account.Pending())
 	t.Log(account.Balance())
 
 }

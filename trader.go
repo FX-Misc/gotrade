@@ -30,6 +30,7 @@ type StockPosition struct {
 
 type Balance struct {
 	Balance          float64
+	MarketBalance    float64
 	AvailableBalance float64
 	FrozenBalance    float64
 }
@@ -363,7 +364,8 @@ func (account *Account) Balance() (data Balance, err error) {
 	body, _ := ioutil.ReadAll(resp.Body)
 	jsonString := account.base64decode(string(body))
 	type Item struct {
-		Balance          string `json:"current_balance"`
+		Balance          string `json:"asset_balance"`
+		MarketBalance    string `json:"market_value"`
 		AvailableBalance string `json:"enable_balance"`
 	}
 	type Message struct {
@@ -380,8 +382,9 @@ func (account *Account) Balance() (data Balance, err error) {
 		return
 	}
 	data.Balance, _ = strconv.ParseFloat(message.Item[0].Balance, 64)
+	data.MarketBalance, _ = strconv.ParseFloat(message.Item[0].MarketBalance, 64)
 	data.AvailableBalance, _ = strconv.ParseFloat(message.Item[0].AvailableBalance, 64)
-	data.FrozenBalance = data.Balance - data.AvailableBalance
+	data.FrozenBalance = data.Balance - data.MarketBalance - data.AvailableBalance
 	return
 }
 
