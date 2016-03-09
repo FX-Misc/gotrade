@@ -22,7 +22,5 @@ func Test_Postion(t *testing.T) {
 }
 
 // func Test_Buy(t *testing.T) {
-// 	a := newAccount()
-// 	id, err := a.Buy("150260", 1.430, 100)
-// 	log.Println(id, err)
+// 	account.Buy("150260", 1.430, 100)
 // }
