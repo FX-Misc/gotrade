@@ -220,9 +220,7 @@ func (api *Api) connect() error {
 			quo, err := api.parseQuotation(rawLine)
 			if err == nil {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
-					strategyNameList := api.strategyMap["i"+quo.Code]
 					quo.Code = "i" + quo.Code
-
 				}
 				strategyNameList := api.strategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
