@@ -95,6 +95,10 @@ func (sbr *Subscriber) Run() {
 	sbr.logger.Info("running...")
 	found := make(map[string]bool)
 	uniqueCodeList := []string{}
+	for len(sbr.codeList) == 0 {
+		sbr.logger.Info("no subscribe stock subscriber waiting...")
+		time.Sleep(1 * time.Second)
+	}
 	for _, code := range sbr.codeList {
 		if !found[code] {
 			found[code] = true
