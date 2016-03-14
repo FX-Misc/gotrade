@@ -106,7 +106,7 @@ func (sbr *Subscriber) Run() {
 		}
 	}
 	sbr.codeList = uniqueCodeList
-
+	log.Println(sbr.codeList)
 	for key, _ := range sbr.codeList {
 		if sbr.codeList[key][0:2] == "15" || sbr.codeList[key][0:2] == "00" || sbr.codeList[key][0:2] == "30" {
 			sbr.codeList[key] = "2cn_sz" + sbr.codeList[key]
@@ -121,6 +121,7 @@ func (sbr *Subscriber) Run() {
 			sbr.codeList[key] = "sh" + sbr.codeList[key][1:7]
 		}
 	}
+
 	log.Println(sbr.codeList)
 
 	start := 0
@@ -167,13 +168,27 @@ func (api *Api) Run() {
 	}
 }
 
+// @todo Run后实时新增订阅
 func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotationChan chan *Quotation) {
+	s.logger.Infof("subscribe strategy : %s code list : %q", strategyName, codeList)
 	for _, code := range codeList {
 		s.strategyMap[code] = append(s.strategyMap[code], strategyName)
 	}
 	s.codeList = append(s.codeList, codeList...)
-	quotationChan = make(chan *Quotation)
+	quotationChan = make(chan *Quotation, 1)
 	s.quotationChanMap[strategyName] = quotationChan
+	return
+}
+
+func (s *Subscriber) Unsubscribe(strategyName string, codeList []string) (err error) {
+	s.logger.Infof("unsubscribe strategy : %s code list : %q", strategyName, codeList)
+	for _, code := range codeList {
+		for i, name := range s.strategyMap[code] {
+			if name == strategyName {
+				s.strategyMap[code] = append(s.strategyMap[code][:i], s.strategyMap[code][i+1:]...)
+			}
+		}
+	}
 	return
 }
 
