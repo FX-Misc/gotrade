@@ -140,11 +140,12 @@ func (account *Account) Login() (err error) {
 		req.Header.Add("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)")
 		os.Remove(GetBasePath() + "/cache/verify.jpg")
 		resp, err = account.client.Do(req)
-		if resp != nil {
-			log.Println("login error1")
+		if err != nil {
+			log.Println("login error")
 			log.Println(err)
 			account.logger.Errorln("login error")
 			account.logger.Errorln(err)
+			return
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()

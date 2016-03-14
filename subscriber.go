@@ -175,7 +175,7 @@ func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotatio
 		s.strategyMap[code] = append(s.strategyMap[code], strategyName)
 	}
 	s.codeList = append(s.codeList, codeList...)
-	quotationChan = make(chan *Quotation, 1)
+	quotationChan = make(chan *Quotation)
 	s.quotationChanMap[strategyName] = quotationChan
 	return
 }
