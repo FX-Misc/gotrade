@@ -1,14 +1,12 @@
 package gotrade
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -303,33 +301,6 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 }
 
 func (api *Api) refreshToken() error {
-	stdOut := bytes.Buffer{}
-	args := make([]string, 0)
-	args = append(args, fmt.Sprintf(api.TokenServer, api.IP, api.Params))
-	args = append(args, "-H")
-	args = append(args, fmt.Sprintf("User-Agent: ", api.UA))
-	args = append(args, "-H")
-	args = append(args, fmt.Sprintf("Cookie: ", api.Cookie))
-	cmd := exec.Command("curl", args...)
-	cmd.Stdout = &stdOut
-	if err := cmd.Run(); err == nil {
-		re := regexp.MustCompile(`result:"(.+?)"`)
-		result := re.FindAllSubmatch(stdOut.Bytes(), 1)
-		if len(result) == 1 && len(result[0]) == 2 {
-			api.token = string(result[0][1])
-			log.Printf("get token %s", stdOut.Bytes())
-			return nil
-		} else {
-			log.Printf("can't match token %s", stdOut.Bytes())
-			return fmt.Errorf("can't match token")
-		}
-	} else {
-		log.Println("can't get token", err)
-		return fmt.Errorf("can't get token %s", err)
-	}
-}
-
-func (api *Api) refreshTokenExpired() error {
 	log.Println("refresh token")
 	client := &http.Client{}
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
@@ -343,7 +314,6 @@ func (api *Api) refreshTokenExpired() error {
 	}
 	req.Header.Add("User-Agent", api.UA)
 	req.Header.Add("Cookie", api.Cookie)
-	req, _ = http.NewRequest("GET", url, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
