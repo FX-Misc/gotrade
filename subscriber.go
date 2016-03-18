@@ -63,6 +63,7 @@ type Api struct {
 	UA               string
 	TokenServer      string
 	token            string
+	logger           *logrus.Logger
 	cache            map[string]*Quotation
 	quotationChanMap map[string]chan *Quotation
 	strategyMap      map[string][]string
@@ -84,7 +85,7 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("external IP is %s", subscriber.IP)
+	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
 	subscriber.logger = NewLogger("subscriber")
 	return
@@ -105,7 +106,7 @@ func (sbr *Subscriber) Run() {
 		}
 	}
 	sbr.codeList = uniqueCodeList
-	log.Println(sbr.codeList)
+	log.Printf("subscribe list[%s]", sbr.codeList)
 	for key, _ := range sbr.codeList {
 		if sbr.codeList[key][0:2] == "15" || sbr.codeList[key][0:2] == "00" || sbr.codeList[key][0:2] == "30" {
 			sbr.codeList[key] = "2cn_sz" + sbr.codeList[key]
@@ -121,11 +122,10 @@ func (sbr *Subscriber) Run() {
 		}
 	}
 
-	log.Println(sbr.codeList)
-
 	start := 0
 	end := 0
 	length := len(sbr.codeList)
+
 	for {
 		end = start + 50
 		if end >= length {
@@ -140,6 +140,7 @@ func (sbr *Subscriber) Run() {
 			TokenServer:      sbr.TokenServer,
 			quotationChanMap: sbr.quotationChanMap,
 			strategyMap:      sbr.strategyMap,
+			logger:           sbr.logger,
 		}
 		go api.Run()
 		time.Sleep(time.Millisecond * 100)
@@ -250,7 +251,6 @@ func (api *Api) connect() error {
 }
 
 func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
-	// log.Println(rawLine)
 	quo := &Quotation{}
 	rawLines := strings.SplitN(rawLine, "=", 2)
 	if len(rawLines) < 2 {
@@ -307,7 +307,6 @@ func (api *Api) refreshToken() error {
 		api.Params = "2cn_sh502014," + api.Params
 	}
 	url := fmt.Sprintf(api.TokenServer, api.IP, api.Params)
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -324,7 +323,7 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
-		log.Printf("get token %s", body)
+		api.logger.Printf("get token %s", api.token)
 		return nil
 	} else {
 		return fmt.Errorf("can't match token")
