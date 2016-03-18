@@ -9,4 +9,6 @@ type Strategy interface {
 	Start()
 	// 状态
 	Status() bool
+	// 热重启
+	Reload()
 }
