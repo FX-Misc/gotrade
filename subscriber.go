@@ -43,17 +43,17 @@ type OrderBook struct {
 }
 
 type Subscriber struct {
-	Params           string
-	TokenServer      string
-	IP               string
-	Cookie           string
-	UA               string
-	token            string
-	cache            map[string]*Quotation
-	logger           *logrus.Logger
-	codeList         []string
-	quotationChanMap map[string]chan *Quotation
-	strategyMap      map[string][]string
+	Params            string
+	TokenServer       string
+	IP                string
+	Cookie            string
+	UA                string
+	token             string
+	logger            *logrus.Logger
+	codeList          []string
+	quotationChanMap  map[string]chan *Quotation
+	strategyMap       map[string][]string
+	quotationCacheMap map[string]*Quotation
 }
 
 type Api struct {
@@ -351,6 +351,16 @@ func (q *Quotation) GetDepthPrice(minDepth float64, side string) float64 {
 		}
 		return q.Asks[0].Price
 	}
+}
+
+func (s *Subscriber) GetQuation(code string) (quotation *Quotation, err error) {
+	var found bool
+	quotation, found = s.quotationCacheMap[code]
+	if !found {
+		err = fmt.Errorf("%s not coming", code)
+		quotation = &Quotation{}
+	}
+	return
 }
 
 func (qs *QuotationStack) Push(q *Quotation) error {
