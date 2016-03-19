@@ -1,7 +1,7 @@
 package gotrade
 
 import (
-	"gotrade"
+	"github.com/ideawebcn/gotrade"
 	"testing"
 )
 

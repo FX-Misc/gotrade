@@ -64,6 +64,7 @@ type Api struct {
 	TokenServer      string
 	token            string
 	logger           *logrus.Logger
+	subscriber       *Subscriber
 	cache            map[string]*Quotation
 	quotationChanMap map[string]chan *Quotation
 	strategyMap      map[string][]string
@@ -85,6 +86,7 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	if err != nil {
 		panic(err)
 	}
+	subscriber.quotationCacheMap = make(map[string]*Quotation)
 	subscriber.logger = NewLogger("subscriber")
 	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
@@ -141,6 +143,7 @@ func (sbr *Subscriber) Run() {
 			quotationChanMap: sbr.quotationChanMap,
 			strategyMap:      sbr.strategyMap,
 			logger:           sbr.logger,
+			subscriber:       sbr,
 		}
 		go api.Run()
 		time.Sleep(time.Millisecond * 100)
@@ -241,6 +244,7 @@ func (api *Api) connect() error {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					quo.Code = "i" + quo.Code
 				}
+				api.subscriber.quotationCacheMap[quo.Code] = quo
 				strategyNameList := api.strategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
 					api.quotationChanMap[strategyName] <- quo
