@@ -85,9 +85,9 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	if err != nil {
 		panic(err)
 	}
+	subscriber.logger = NewLogger("subscriber")
 	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
-	subscriber.logger = NewLogger("subscriber")
 	return
 }
 
@@ -106,7 +106,7 @@ func (sbr *Subscriber) Run() {
 		}
 	}
 	sbr.codeList = uniqueCodeList
-	log.Printf("subscribe list[%s]", sbr.codeList)
+	log.Printf("subscribe list %s", sbr.codeList)
 	for key, _ := range sbr.codeList {
 		if sbr.codeList[key][0:2] == "15" || sbr.codeList[key][0:2] == "00" || sbr.codeList[key][0:2] == "30" {
 			sbr.codeList[key] = "2cn_sz" + sbr.codeList[key]
@@ -323,7 +323,7 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
-		api.logger.Printf("get token %s", api.token)
+		log.Printf("get token %s", api.token)
 		return nil
 	} else {
 		return fmt.Errorf("can't match token")
