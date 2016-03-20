@@ -49,6 +49,7 @@ type Account struct {
 	logger    *logrus.Logger
 	Fee       float64 `yaml:"fee"`
 	Uid       string  `yaml:"uid"`
+	Nickname  string  `yaml:nickname`
 	Username  string  `yaml:"username"`
 	Account1  string  `yaml:"account1"`
 	Account2  string  `yaml:"account2"`
