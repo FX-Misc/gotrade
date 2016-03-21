@@ -86,7 +86,7 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	if err != nil {
 		panic(err)
 	}
-	subscriber.quotationCacheMap = make(map[string]*Quotation)
+	subscriber.quotationCacheMap = make(map[string]*Quotation, 0)
 	subscriber.logger = NewLogger("subscriber")
 	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
