@@ -244,7 +244,7 @@ func (api *Api) connect() error {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					quo.Code = "i" + quo.Code
 				}
-				api.subscriber.quotationCacheMap[quo.Code] = quo
+			//	api.subscriber.quotationCacheMap[quo.Code] = quo
 				strategyNameList := api.strategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
 					api.quotationChanMap[strategyName] <- quo
