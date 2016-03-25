@@ -94,7 +94,7 @@ func (account *Account) Login() (err error) {
 		Jar:           cookieJar,
 		Transport:     transport,
 	}
-	account.logger.Info("begin login")
+	account.logger.Info("begin login huatai")
 	account.baseUrl = "https://tradegw.htsc.com.cn/?"
 	cacheByte, _ := ioutil.ReadFile(GetBasePath() + "/cache/" + account.Username + "Uid")
 	cacheUid := string(cacheByte)

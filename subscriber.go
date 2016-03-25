@@ -54,20 +54,21 @@ type Subscriber struct {
 	quotationChanMap  map[string]chan *Quotation
 	strategyMap       map[string][]string
 	quotationCacheMap map[string]*Quotation
+	cacheQuotaionChan chan *Quotation
 }
 
 type Api struct {
-	Params           string
-	Cookie           string
-	IP               string
-	UA               string
-	TokenServer      string
-	token            string
-	logger           *logrus.Logger
-	subscriber       *Subscriber
-	cache            map[string]*Quotation
-	quotationChanMap map[string]chan *Quotation
-	strategyMap      map[string][]string
+	Params            string
+	Cookie            string
+	IP                string
+	UA                string
+	TokenServer       string
+	token             string
+	logger            *logrus.Logger
+	subscriber        *Subscriber
+	cacheQuotaionChan chan *Quotation
+	quotationChanMap  map[string]chan *Quotation
+	strategyMap       map[string][]string
 }
 
 func NewSubscriber(configPath string) (subscriber *Subscriber) {
@@ -80,6 +81,7 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	subscriber.codeList = []string{}
 	subscriber.strategyMap = make(map[string][]string)
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
+	subscriber.cacheQuotaionChan = make(chan *Quotation)
 	subscriber.Cookie = config.Cookie
 	subscriber.UA = config.UA
 	err = subscriber.getExternalIp()
@@ -162,6 +164,12 @@ func (api *Api) Run() {
 			api.refreshToken()
 		}
 	}()
+	// cache quation
+	go func() {
+		for quotation := range api.subscriber.cacheQuotaionChan {
+			api.subscriber.quotationCacheMap[quotation.Code] = quotation
+		}
+	}()
 	for {
 		err := api.connect()
 		if err != nil {
@@ -218,7 +226,6 @@ func (s *Subscriber) getExternalIp() error {
 func (api *Api) connect() error {
 	url := fmt.Sprintf("ws://ff.sinajs.cn/wskt?token=%s&list=%s", api.token, api.Params)
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
-	api.cache = make(map[string]*Quotation)
 	if err != nil {
 		return err
 	}
@@ -244,7 +251,7 @@ func (api *Api) connect() error {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					quo.Code = "i" + quo.Code
 				}
-			//	api.subscriber.quotationCacheMap[quo.Code] = quo
+				api.subscriber.cacheQuotaionChan <- quo
 				strategyNameList := api.strategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
 					api.quotationChanMap[strategyName] <- quo
