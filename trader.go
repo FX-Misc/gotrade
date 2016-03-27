@@ -360,6 +360,19 @@ func (account *Account) Position() (data []StockPosition, err error) {
 	return
 }
 
+// 2.0
+func (account *Account) GetPositionMap() (positionMap map[string]*StockPosition, err error) {
+	positionList, err := account.Position()
+	if err != nil {
+		return
+	}
+	positionMap = make(map[string]*StockPosition)
+	for _, position := range positionList {
+		positionMap[position.Code] = &position
+	}
+	return
+}
+
 // 获取账户资金
 func (account *Account) Balance() (data Balance, err error) {
 	raw := fmt.Sprintf("uid=%s&cssweb_type=GET_FUNDS&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=405&fund_account=%s&password=%s&identity_type=&money_type=&ram=0.5080185956321657",
