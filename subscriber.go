@@ -129,7 +129,12 @@ func (sbr *Subscriber) Run() {
 	start := 0
 	end := 0
 	length := len(sbr.codeList)
-
+	// cache quation
+	go func() {
+		for quotation := range sbr.cacheQuotaionChan {
+			sbr.quotationCacheMap[quotation.Code] = quotation
+		}
+	}()
 	for {
 		end = start + 50
 		if end >= length {
@@ -164,12 +169,7 @@ func (api *Api) Run() {
 			api.refreshToken()
 		}
 	}()
-	// cache quation
-	// go func() {
-	// 	for quotation := range api.subscriber.cacheQuotaionChan {
-	// 		api.subscriber.quotationCacheMap[quotation.Code] = quotation
-	// 	}
-	// }()
+
 	for {
 		err := api.connect()
 		if err != nil {
