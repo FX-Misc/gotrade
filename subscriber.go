@@ -165,11 +165,11 @@ func (api *Api) Run() {
 		}
 	}()
 	// cache quation
-	go func() {
-		for quotation := range api.subscriber.cacheQuotaionChan {
-			api.subscriber.quotationCacheMap[quotation.Code] = quotation
-		}
-	}()
+	// go func() {
+	// 	for quotation := range api.subscriber.cacheQuotaionChan {
+	// 		api.subscriber.quotationCacheMap[quotation.Code] = quotation
+	// 	}
+	// }()
 	for {
 		err := api.connect()
 		if err != nil {
