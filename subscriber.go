@@ -51,6 +51,7 @@ type Subscriber struct {
 	token             string
 	logger            *logrus.Logger
 	codeList          []string
+	found             map[string]bool
 	quotationChanMap  map[string]chan *Quotation
 	strategyMap       map[string][]string
 	quotationCacheMap map[string]*Quotation
@@ -84,6 +85,7 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 	subscriber.cacheQuotaionChan = make(chan *Quotation)
 	subscriber.Cookie = config.Cookie
 	subscriber.UA = config.UA
+	subscriber.found = make(map[string]bool)
 	err = subscriber.getExternalIp()
 	if err != nil {
 		panic(err)
@@ -182,10 +184,17 @@ func (api *Api) Run() {
 // @todo Run后实时新增订阅
 func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotationChan chan *Quotation) {
 	s.logger.Infof("subscribe strategy : %s code list : %q", strategyName, codeList)
+	found := make(map[string]bool)
 	for _, code := range codeList {
-		s.strategyMap[code] = append(s.strategyMap[code], strategyName)
+		if !found[code] {
+			found[code] = true
+			s.strategyMap[code] = append(s.strategyMap[code], strategyName)
+		}
+		if !s.found[code] {
+			s.found[code] = true
+			s.codeList = append(s.codeList, code)
+		}
 	}
-	s.codeList = append(s.codeList, codeList...)
 	quotationChan = make(chan *Quotation)
 	s.quotationChanMap[strategyName] = quotationChan
 	return
