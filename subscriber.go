@@ -164,11 +164,17 @@ func (sbr *Subscriber) Run() {
 }
 
 func (api *Api) Run() {
-	api.refreshToken()
+	err := api.refreshToken()
+	if err != nil {
+		panic(err)
+	}
 	go func() {
 		for {
 			time.Sleep(time.Minute * 1)
-			api.refreshToken()
+			err := api.refreshToken()
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}()
 

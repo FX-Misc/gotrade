@@ -21,11 +21,14 @@ import (
 )
 
 type StockPosition struct {
-	Code            string  `yaml:"-"`
-	Name            string  `yaml:"-"`
-	Amount          float64 `yaml:"amount"`
+	Code            string  `yaml:"code"`
+	Name            string  `yaml:"name"`
+	Amount          float64 `yaml:"amount"` //数量
+	Total           float64 `yaml:"total"`  // 价值
 	AvailableAmount float64 `yaml:"available_amount"`
 	FrozenAmount    float64 `yaml:"frozen_amount"`
+	Profit          float64 `yaml:"profit"`       // 盈利
+	ProfitRatio     float64 `yaml:"profit_ratio"` // 盈利率
 }
 
 type Balance struct {
@@ -310,7 +313,7 @@ func (account *Account) Cancel(id int64) (err error) {
 }
 
 // 获取持仓
-func (account *Account) Position() (data []StockPosition, err error) {
+func (account *Account) Position() (data []*StockPosition, err error) {
 	raw := fmt.Sprintf("uid=%s&cssweb_type=GET_STOCK_POSITION&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=403&fund_account=%s&password=%s&identity_type=&exchange_type=&stock_account=&stock_code=&query_direction=&query_mode=0&request_num=100&position_str=&ram=0.39408391434699297",
 		account.Uid, account.Username, account.Username, account.Password3)
 	param := account.base64encode(raw)
@@ -330,6 +333,9 @@ func (account *Account) Position() (data []StockPosition, err error) {
 		Amount          string `json:"current_amount"`
 		AvailableAmount string `json:"enable_amount"`
 		FrozenAmount    string `json:"hand_flag"`
+		Total           string `json:"market_value"`
+		Profit          string `json:"income_balance"`
+		ProfitRatio     string `json:"income_balance_ratio"`
 	}
 	type Message struct {
 		Code         string `json:"cssweb_code"`
@@ -348,12 +354,16 @@ func (account *Account) Position() (data []StockPosition, err error) {
 	if len(message.Items) > 1 {
 		message.Items = message.Items[:len(message.Items)-1]
 		for _, item := range message.Items {
-			stockPosition := StockPosition{}
+			stockPosition := new(StockPosition)
 			stockPosition.Name = item.Name
 			stockPosition.Code = item.Code
 			stockPosition.Amount, _ = strconv.ParseFloat(item.Amount, 64)
 			stockPosition.AvailableAmount, _ = strconv.ParseFloat(item.AvailableAmount, 64)
 			stockPosition.FrozenAmount = stockPosition.Amount - stockPosition.AvailableAmount
+			stockPosition.Total, _ = strconv.ParseFloat(item.Total, 64)
+			stockPosition.Profit, _ = strconv.ParseFloat(item.Profit, 64)
+			stockPosition.ProfitRatio, _ = strconv.ParseFloat(item.ProfitRatio, 64)
+			stockPosition.ProfitRatio /= 100
 			data = append(data, stockPosition)
 		}
 	}
@@ -368,7 +378,7 @@ func (account *Account) GetPositionMap() (positionMap map[string]*StockPosition,
 	}
 	positionMap = make(map[string]*StockPosition)
 	for _, position := range positionList {
-		positionMap[position.Code] = &position
+		positionMap[position.Code] = position
 	}
 	return
 }
