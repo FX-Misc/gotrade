@@ -7,6 +7,11 @@ import (
 )
 
 func YamlFileDecode(path string, out interface{}) (err error) {
+	file, err := os.OpenFile(path, os.O_CREATE, 0644)
+	if err != nil {
+		return
+	}
+	defer file.Close()
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return
@@ -19,7 +24,6 @@ func YamlFileDecode(path string, out interface{}) (err error) {
 }
 
 func YamlFileEncode(path string, in interface{}) (err error) {
-	os.Remove(path)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return
