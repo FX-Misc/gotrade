@@ -11,7 +11,7 @@ func YamlFileDecode(path string, out interface{}) (err error) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	file.Close()
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return
@@ -24,16 +24,11 @@ func YamlFileDecode(path string, out interface{}) (err error) {
 }
 
 func YamlFileEncode(path string, in interface{}) (err error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return
-	}
-	defer file.Close()
 	out, err := yaml.Marshal(in)
 	if err != nil {
 		return
 	}
-	_, err = file.Write(out)
+	err = ioutil.WriteFile(path, out, 0644)
 	if err != nil {
 		return
 	}
