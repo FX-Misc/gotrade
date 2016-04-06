@@ -7,6 +7,7 @@ import (
 )
 
 func YamlFileDecode(path string, out interface{}) (err error) {
+	// create file if not exists
 	file, err := os.OpenFile(path, os.O_CREATE, 0644)
 	if err != nil {
 		return
