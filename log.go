@@ -12,7 +12,7 @@ func NewLogger(name string) (logger *logrus.Logger) {
 		panic(err)
 	}
 	logger.Out = logOutput
-	formatter := &logrus.TextFormatter{TimestampFormat: "2006-01-02 15:04:05", FullTimestamp: true}
+	formatter := &logrus.TextFormatter{TimestampFormat: "2006-01-02 15:04:05", FullTimestamp: true, DisableColors: true}
 	logger.Formatter = formatter
 	return logger
 }
