@@ -175,7 +175,7 @@ func (api *Api) Run() {
 	go func() {
 		for {
 			if !api.tokenExpired {
-				time.Sleep(time.Minute * 1)
+				time.Sleep(time.Minute * 3)
 			}
 			err := api.refreshToken()
 			if err != nil {
