@@ -64,6 +64,7 @@ type Api struct {
 	IP                string
 	UA                string
 	TokenServer       string
+	tokenExpired      bool
 	token             string
 	logger            *logrus.Logger
 	subscriber        *Subscriber
@@ -166,14 +167,22 @@ func (sbr *Subscriber) Run() {
 func (api *Api) Run() {
 	err := api.refreshToken()
 	if err != nil {
-		panic(err)
+		api.tokenExpired = true
+		log.Println(err)
+	} else {
+		api.tokenExpired = false
 	}
 	go func() {
 		for {
-			time.Sleep(time.Minute * 1)
+			if !api.tokenExpired {
+				time.Sleep(time.Minute * 1)
+			}
 			err := api.refreshToken()
 			if err != nil {
+				api.tokenExpired = true
 				log.Println(err)
+			} else {
+				api.tokenExpired = false
 			}
 		}
 	}()
@@ -253,6 +262,8 @@ func (api *Api) connect() error {
 		}
 		raw := string(message)
 		if strings.Contains(raw, "sys_auth=FAILED") {
+			// 标记 token 为过期
+			api.tokenExpired = true
 			return fmt.Errorf("auth timeout")
 		}
 		rawLines := strings.SplitN(raw, "\n", -1)
