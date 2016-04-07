@@ -1,14 +1,13 @@
 package gotrade
 
 import (
-	"github.com/ideawebcn/gotrade"
 	"testing"
 )
 
-var account *gotrade.Account
+var account *Account
 
 func init() {
-	account = gotrade.NewAccount("config/trade.yaml")
+	account = NewAccount("config/trade.yaml")
 }
 
 func Test_Login(t *testing.T) {
