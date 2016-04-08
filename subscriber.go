@@ -64,6 +64,7 @@ type Api struct {
 	IP                string
 	UA                string
 	TokenServer       string
+	flag              int
 	tokenExpired      bool
 	token             string
 	logger            *logrus.Logger
@@ -128,9 +129,7 @@ func (sbr *Subscriber) Run() {
 			sbr.codeList[key] = "sh" + sbr.codeList[key][1:7]
 		}
 	}
-
-	start := 0
-	end := 0
+	start, end, flag := 0, 0, 0
 	length := len(sbr.codeList)
 	// cache quation
 	go func() {
@@ -154,6 +153,7 @@ func (sbr *Subscriber) Run() {
 			strategyMap:      sbr.strategyMap,
 			logger:           sbr.logger,
 			subscriber:       sbr,
+			flag:             flag,
 		}
 		go api.Run()
 		time.Sleep(time.Millisecond * 100)
@@ -161,6 +161,7 @@ func (sbr *Subscriber) Run() {
 			break
 		}
 		start = start + 50
+		flag += 1
 	}
 }
 
@@ -168,7 +169,6 @@ func (api *Api) Run() {
 	err := api.refreshToken()
 	if err != nil {
 		api.tokenExpired = true
-		log.Println(err)
 	} else {
 		api.tokenExpired = false
 	}
@@ -180,7 +180,6 @@ func (api *Api) Run() {
 			err := api.refreshToken()
 			if err != nil {
 				api.tokenExpired = true
-				log.Println(err)
 			} else {
 				api.tokenExpired = false
 			}
@@ -190,9 +189,9 @@ func (api *Api) Run() {
 	for {
 		err := api.connect()
 		if err != nil {
-			log.Printf("connect failed: %s\n", err)
+			log.Printf("#%d connect failed: %s\n", api.flag, err)
 		}
-		log.Println("closed")
+		log.Println("#%d closed", api.flag)
 	}
 }
 
@@ -257,13 +256,14 @@ func (api *Api) connect() error {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Printf("read message error: %s", err)
+			log.Printf("#%d read message error: %s", api.flag, err)
 			return nil
 		}
 		raw := string(message)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
 			api.tokenExpired = true
+			log.Printf("#%d auth timeout", api.flag)
 			return fmt.Errorf("auth timeout")
 		}
 		rawLines := strings.SplitN(raw, "\n", -1)
@@ -338,7 +338,7 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 }
 
 func (api *Api) refreshToken() error {
-	log.Println("refresh token")
+	log.Printf("#%d refresh token", api.flag)
 	client := &http.Client{}
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
 		api.Params = "2cn_sh502014," + api.Params
@@ -360,9 +360,10 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
-		log.Printf("get token %s", api.token)
+		log.Printf("#%d get token %s", api.flag, api.token)
 		return nil
 	} else {
+		log.Printf("#%d can't match token", api.flag)
 		return fmt.Errorf("can't match token")
 	}
 }
