@@ -167,32 +167,35 @@ func (sbr *Subscriber) Run() {
 }
 
 func (api *Api) Run() {
+	lastRefresh := time.Now().Unix()
 	err := api.refreshToken()
 	if err != nil {
-		log.Printf("#%d %s", err)
+		log.Printf("#%d %s", api.flag, err)
 		api.tokenExpired = true
 	} else {
 		api.tokenExpired = false
 	}
 	go func() {
 		for {
-			if !api.tokenExpired {
-				time.Sleep(time.Minute * 3)
-			}
-			err := api.refreshToken()
-			if err != nil {
-				log.Printf("#%d %s", err)
-				api.tokenExpired = true
-			} else {
+			// 如果 token 过期 或者离上次刷新超过3分钟，刷新 token
+			if api.tokenExpired || time.Now().Unix()-lastRefresh > 180 {
+				lastRefresh = time.Now().Unix()
+				err := api.refreshToken()
+				if err != nil {
+					log.Printf("#%d %s", api.flag, err)
+					api.tokenExpired = true
+					continue
+				}
 				api.tokenExpired = false
 			}
+			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 
 	for {
 		err := api.connect()
 		if err != nil {
-			log.Printf("#%d connect failed: %s\n", api.flag, err)
+			log.Printf("#%d connect failed: %s", api.flag, err)
 		}
 		log.Printf("#%d closed", api.flag)
 	}
