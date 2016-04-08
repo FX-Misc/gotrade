@@ -262,7 +262,7 @@ func (api *Api) connect() error {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Printf("#%d read message error: %s", api.flag, err)
+			log.Printf("#%d %s", api.flag, err)
 			return nil
 		}
 		raw := string(message)
