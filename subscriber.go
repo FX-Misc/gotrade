@@ -362,6 +362,7 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
+		log.Printf("#%d get token %s", api.flag, api.token)
 		return nil
 	} else {
 		return fmt.Errorf("can't match token")
