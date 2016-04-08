@@ -156,7 +156,8 @@ func (sbr *Subscriber) Run() {
 			flag:             flag,
 		}
 		go api.Run()
-		time.Sleep(time.Millisecond * 100)
+		// 分散 worker 防止并发量过大
+		time.Sleep(time.Second * 1)
 		if end >= length {
 			break
 		}
@@ -168,6 +169,7 @@ func (sbr *Subscriber) Run() {
 func (api *Api) Run() {
 	err := api.refreshToken()
 	if err != nil {
+		log.Printf("#%d %s", err)
 		api.tokenExpired = true
 	} else {
 		api.tokenExpired = false
@@ -179,6 +181,7 @@ func (api *Api) Run() {
 			}
 			err := api.refreshToken()
 			if err != nil {
+				log.Printf("#%d %s", err)
 				api.tokenExpired = true
 			} else {
 				api.tokenExpired = false
@@ -191,7 +194,7 @@ func (api *Api) Run() {
 		if err != nil {
 			log.Printf("#%d connect failed: %s\n", api.flag, err)
 		}
-		log.Println("#%d closed", api.flag)
+		log.Printf("#%d closed", api.flag)
 	}
 }
 
@@ -263,7 +266,6 @@ func (api *Api) connect() error {
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
 			api.tokenExpired = true
-			log.Printf("#%d auth timeout", api.flag)
 			return fmt.Errorf("auth timeout")
 		}
 		rawLines := strings.SplitN(raw, "\n", -1)
@@ -360,10 +362,8 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		api.token = string(result[0][1])
-		log.Printf("#%d get token %s", api.flag, api.token)
 		return nil
 	} else {
-		log.Printf("#%d can't match token", api.flag)
 		return fmt.Errorf("can't match token")
 	}
 }
