@@ -188,11 +188,17 @@ func (api *Api) Run() {
 				}
 				api.tokenExpired = false
 			}
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 500)
 		}
 	}()
 
 	for {
+		// token 已过期，等待重连
+		if api.tokenExpired {
+			time.Sleep(time.Second * 1)
+			log.Printf("#%d waiting token...", api.flag)
+			continue
+		}
 		err := api.connect()
 		if err != nil {
 			log.Printf("#%d connect failed: %s", api.flag, err)
