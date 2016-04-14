@@ -390,7 +390,11 @@ func (account *Account) Balance() (data Balance, err error) {
 	param := base64.StdEncoding.EncodeToString([]byte(raw))
 	url := fmt.Sprintf("https://tradegw.htsc.com.cn/?%s", param)
 	req, _ := http.NewRequest("GET", url, nil)
-	resp, _ := account.client.Do(req)
+	resp, err := account.client.Do(req)
+	if err != nil {
+		account.logger.Errorln("get balance err", err)
+		return
+	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	jsonString := account.base64decode(string(body))
