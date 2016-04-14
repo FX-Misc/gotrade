@@ -199,6 +199,7 @@ func (api *Api) Run() {
 			log.Printf("#%d waiting token...", api.flag)
 			continue
 		}
+		log.Printf("#%d connect", api.flag)
 		err := api.connect()
 		if err != nil {
 			log.Printf("#%d connect failed: %s", api.flag, err)
@@ -265,6 +266,44 @@ func (api *Api) connect() error {
 		return err
 	}
 	defer c.Close()
+
+	// keep alive
+	go func() {
+		for {
+			log.Printf("#%d send empty message", api.flag)
+			err := c.WriteMessage(1, []byte(""))
+			if err != nil {
+				log.Printf("#%d send empty message failed: %s", api.flag, err)
+				// 释放可能的空连接
+				return
+			}
+			time.Sleep(50 * time.Second)
+		}
+	}()
+
+	// send new token
+	go func() {
+		token := api.token
+		for {
+			time.Sleep(1 * time.Second)
+			if api.tokenExpired {
+				continue
+			}
+
+			// token 未刷新
+			if api.token == token {
+				continue
+			}
+			log.Printf("#%d send new token %s", api.flag, api.token)
+			err := c.WriteMessage(1, []byte("*"+api.token))
+			if err != nil {
+				log.Printf("#%d send token failed: %s", api.flag, err)
+				// 释放可能的空连接
+				return
+			}
+			token = api.token
+		}
+	}()
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
@@ -280,7 +319,7 @@ func (api *Api) connect() error {
 		rawLines := strings.SplitN(raw, "\n", -1)
 		// @todo 如果有股票加入可能index的code会冲突
 		for _, rawLine := range rawLines {
-			if strings.Contains(rawLine, "sys_nxkey=") || strings.Contains(rawLine, "sys_time=") || len(rawLine) < 10 {
+			if strings.Contains(rawLine, "sys_nxkey=") || strings.Contains(rawLine, "sys_time=") || strings.Contains(rawLine, "sys_auth=") || len(rawLine) < 10 {
 				continue
 			}
 			quo, err := api.parseQuotation(rawLine)
@@ -350,7 +389,9 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 
 func (api *Api) refreshToken() error {
 	log.Printf("#%d refresh token", api.flag)
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
 		api.Params = "2cn_sh502014," + api.Params
 	}
