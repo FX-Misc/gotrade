@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+const (
+	TICKET_BUY  = 0
+	TICKET_SELL = 1
+)
+
 type Configuration struct {
 	Cookie      string `yaml:"cookie"`
 	UA          string `yaml:"ua"`
@@ -42,36 +47,43 @@ type OrderBook struct {
 	Amount float64
 }
 
+type Tickets struct {
+	Code    string
+	Tickets []Ticket
+}
+
+type Ticket struct {
+	Price  float64
+	Amount float64
+	Type   int
+	Time   time.Time
+}
+
 type Subscriber struct {
-	Params            string
-	TokenServer       string
-	IP                string
-	Cookie            string
-	UA                string
-	token             string
-	logger            *logrus.Logger
-	codeList          []string
-	found             map[string]bool
-	quotationChanMap  map[string]chan *Quotation
-	strategyMap       map[string][]string
-	quotationCacheMap map[string]*Quotation
-	cacheQuotaionChan chan *Quotation
+	TokenServer              string
+	IP                       string
+	Cookie                   string
+	UA                       string
+	today                    string
+	logger                   *logrus.Logger
+	quotationCodeList        []string
+	ticketCodeList           []string
+	quotationCodeFound       map[string]bool
+	ticketCodeFound          map[string]bool
+	quotationChanMap         map[string]chan *Quotation // quotation strategy to channel [strategyName]quotitaionChannel
+	quotationCodeStrategyMap map[string][]string        // quotation code to strategies [code][]{strategy_1, strategy_2}
+	cacheQuotaionChan        chan *Quotation            // for cache quotation
+	quotationCacheMap        map[string]*Quotation      // cached quotation
+	ticketChanMap            map[string]chan *Tickets   // ticket strategy to channel [strategyName]TicketChannel
+	ticketCodeStrategyMap    map[string][]string        // ticket code to strategies [code][]{strategy_1, strategy_2}
 }
 
 type Api struct {
-	Params            string
-	Cookie            string
-	IP                string
-	UA                string
-	TokenServer       string
-	flag              int
-	tokenExpired      bool
-	token             string
-	logger            *logrus.Logger
-	subscriber        *Subscriber
-	cacheQuotaionChan chan *Quotation
-	quotationChanMap  map[string]chan *Quotation
-	strategyMap       map[string][]string
+	Params       string
+	flag         int
+	tokenExpired bool
+	token        string
+	subscriber   *Subscriber
 }
 
 func NewSubscriber(configPath string) (subscriber *Subscriber) {
@@ -81,88 +93,138 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 		panic(err)
 	}
 	subscriber = &Subscriber{}
-	subscriber.codeList = []string{}
-	subscriber.strategyMap = make(map[string][]string)
+	subscriber.quotationCodeList = []string{}
+	subscriber.ticketCodeList = []string{}
+	subscriber.quotationCodeStrategyMap = make(map[string][]string)
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
+	subscriber.ticketChanMap = make(map[string]chan *Tickets)
+	subscriber.ticketCodeStrategyMap = make(map[string][]string)
 	subscriber.cacheQuotaionChan = make(chan *Quotation)
 	subscriber.Cookie = config.Cookie
 	subscriber.UA = config.UA
-	subscriber.found = make(map[string]bool)
+	subscriber.quotationCodeFound = make(map[string]bool)
+	subscriber.ticketCodeFound = make(map[string]bool)
 	err = subscriber.getExternalIp()
 	if err != nil {
 		panic(err)
 	}
-	subscriber.quotationCacheMap = make(map[string]*Quotation, 0)
+	subscriber.quotationCacheMap = make(map[string]*Quotation)
 	subscriber.logger = NewLogger("subscriber")
 	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
+	subscriber.today = time.Now().Format("2006-01-02")
 	return
 }
 
 func (sbr *Subscriber) Run() {
 	sbr.logger.Info("running...")
-	found := make(map[string]bool)
-	uniqueCodeList := []string{}
-	for len(sbr.codeList) == 0 {
-		sbr.logger.Info("no subscribe stock subscriber waiting...")
-		time.Sleep(1 * time.Second)
-	}
-	for _, code := range sbr.codeList {
-		if !found[code] {
-			found[code] = true
-			uniqueCodeList = append(uniqueCodeList, code)
-		}
-	}
-	sbr.codeList = uniqueCodeList
-	log.Printf("subscribe list %s", sbr.codeList)
-	for key, _ := range sbr.codeList {
-		if sbr.codeList[key][0:2] == "15" || sbr.codeList[key][0:2] == "00" || sbr.codeList[key][0:2] == "30" {
-			sbr.codeList[key] = "2cn_sz" + sbr.codeList[key]
-		}
-		if sbr.codeList[key][0:2] == "60" || sbr.codeList[key][0:1] == "5" {
-			sbr.codeList[key] = "2cn_sh" + sbr.codeList[key]
-		}
-		if sbr.codeList[key][0:3] == "i39" {
-			sbr.codeList[key] = "sz" + sbr.codeList[key][1:7]
-		}
-		if sbr.codeList[key][0:3] == "i00" {
-			sbr.codeList[key] = "sh" + sbr.codeList[key][1:7]
-		}
-	}
-	start, end, flag := 0, 0, 0
-	length := len(sbr.codeList)
+	// found := make(map[string]bool)
+	// uniqueCodeList := []string{}
+	// for len(sbr.codeList) == 0 {
+	// 	sbr.logger.Info("no subscribe stock subscriber waiting...")
+	// 	time.Sleep(1 * time.Second)
+	// }
+	// for _, code := range sbr.codeList {
+	// 	if !found[code] {
+	// 		found[code] = true
+	// 		uniqueCodeList = append(uniqueCodeList, code)
+	// 	}
+	// }
+	// sbr.codeList = uniqueCodeList
+	log.Printf("subscribe quotation list %s", sbr.quotationCodeList)
+	log.Printf("subscribe ticket list %s", sbr.ticketCodeList)
+
 	// cache quation
 	go func() {
 		for quotation := range sbr.cacheQuotaionChan {
 			sbr.quotationCacheMap[quotation.Code] = quotation
 		}
 	}()
-	for {
-		end = start + 50
-		if end >= length {
-			end = length
+
+	quotationParamList := make([]string, 0)
+	for _, code := range sbr.quotationCodeList {
+		if code[0:2] == "15" || code[0:2] == "00" || code[0:2] == "30" {
+			quotationParamList = append(quotationParamList, fmt.Sprintf("2cn_sz%s", code))
+			continue
 		}
-		params := strings.Join(sbr.codeList[start:end], ",")
-		api := Api{
-			Params:           params,
-			IP:               sbr.IP,
-			Cookie:           sbr.Cookie,
-			UA:               sbr.UA,
-			TokenServer:      sbr.TokenServer,
-			quotationChanMap: sbr.quotationChanMap,
-			strategyMap:      sbr.strategyMap,
-			logger:           sbr.logger,
-			subscriber:       sbr,
-			flag:             flag,
+		if code[0:2] == "60" || code[0:1] == "5" {
+			quotationParamList = append(quotationParamList, fmt.Sprintf("2cn_sh%s", code))
+			continue
 		}
-		go api.Run()
-		// 分散 worker 防止并发量过大
-		time.Sleep(time.Second * 1)
-		if end >= length {
-			break
+		// index code
+		if code[0:3] == "i39" {
+			quotationParamList = append(quotationParamList, fmt.Sprintf("sz%s", code[1:7]))
+			continue
 		}
-		start = start + 50
-		flag += 1
+		if code[0:3] == "i00" {
+			quotationParamList = append(quotationParamList, fmt.Sprintf("sh%s", code[1:7]))
+			continue
+		}
+	}
+
+	ticketParamList := make([]string, 0)
+	for _, code := range sbr.ticketCodeList {
+		if code[0:2] == "15" || code[0:2] == "00" || code[0:2] == "30" {
+			ticketParamList = append(ticketParamList, fmt.Sprintf("2cn_sz%s_0,2cn_sz%s_1", code, code))
+			continue
+		}
+		if code[0:2] == "60" || code[0:1] == "5" {
+			ticketParamList = append(ticketParamList, fmt.Sprintf("2cn_sh%s_0,2cn_sh%s_1", code, code))
+			continue
+		}
+	}
+
+	// subscribe quotation
+	start, end, flag := 0, 0, 0
+	length := len(quotationParamList)
+
+	if length > 0 {
+		for {
+			end = start + 50
+			if end >= length {
+				end = length
+			}
+			params := strings.Join(quotationParamList[start:end], ",")
+			api := Api{
+				Params:     params,
+				subscriber: sbr,
+				flag:       flag,
+			}
+			flag += 1
+			go api.Run()
+			// 分散 worker 防止并发量过大
+			time.Sleep(time.Second * 1)
+			if end >= length {
+				break
+			}
+			start = start + 50
+		}
+	}
+
+	// subscribe ticket
+	start, end = 0, 0
+	length = len(ticketParamList)
+	if length > 0 {
+		for {
+			end = start + 20
+			if end >= length {
+				end = length
+			}
+			params := strings.Join(ticketParamList[start:end], ",")
+			api := Api{
+				Params:     params,
+				subscriber: sbr,
+				flag:       flag,
+			}
+			go api.Run()
+			// 分散 worker 防止并发量过大
+			time.Sleep(time.Second * 1)
+			if end >= length {
+				break
+			}
+			start = start + 20
+			flag += 1
+		}
 	}
 }
 
@@ -210,16 +272,16 @@ func (api *Api) Run() {
 
 // @todo Run后实时新增订阅
 func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotationChan chan *Quotation) {
-	s.logger.Infof("subscribe strategy : %s code list : %q", strategyName, codeList)
+	s.logger.Infof("subscribe strategy: %s code list: %q", strategyName, codeList)
 	found := make(map[string]bool)
 	for _, code := range codeList {
 		if !found[code] {
 			found[code] = true
-			s.strategyMap[code] = append(s.strategyMap[code], strategyName)
+			s.quotationCodeStrategyMap[code] = append(s.quotationCodeStrategyMap[code], strategyName)
 		}
-		if !s.found[code] {
-			s.found[code] = true
-			s.codeList = append(s.codeList, code)
+		if !s.quotationCodeFound[code] {
+			s.quotationCodeFound[code] = true
+			s.quotationCodeList = append(s.quotationCodeList, code)
 		}
 	}
 	quotationChan = make(chan *Quotation)
@@ -227,12 +289,31 @@ func (s *Subscriber) Subscribe(strategyName string, codeList []string) (quotatio
 	return
 }
 
-func (s *Subscriber) Unsubscribe(strategyName string, codeList []string) (err error) {
-	s.logger.Infof("unsubscribe strategy : %s code list : %q", strategyName, codeList)
+func (s *Subscriber) SubscribeTicket(strategyName string, codeList []string) (ticketChan chan *Tickets) {
+	s.logger.Infof("subscribeTicket strategy: %s code list: %q", strategyName, codeList)
+	found := make(map[string]bool)
 	for _, code := range codeList {
-		for i, name := range s.strategyMap[code] {
+		if !found[code] {
+			found[code] = true
+			s.ticketCodeStrategyMap[code] = append(s.ticketCodeStrategyMap[code], strategyName)
+		}
+		if !s.ticketCodeFound[code] {
+			s.ticketCodeFound[code] = true
+			s.ticketCodeList = append(s.ticketCodeList, code)
+		}
+	}
+	ticketChan = make(chan *Tickets)
+	s.ticketChanMap[strategyName] = ticketChan
+	return
+}
+
+// deprecated
+func (s *Subscriber) Unsubscribe(strategyName string, codeList []string) (err error) {
+	s.logger.Infof("unsubscribe strategy: %s code list: %q", strategyName, codeList)
+	for _, code := range codeList {
+		for i, name := range s.quotationCodeStrategyMap[code] {
 			if name == strategyName {
-				s.strategyMap[code] = append(s.strategyMap[code][:i], s.strategyMap[code][i+1:]...)
+				s.quotationCodeStrategyMap[code] = append(s.quotationCodeStrategyMap[code][:i], s.quotationCodeStrategyMap[code][i+1:]...)
 			}
 		}
 	}
@@ -270,7 +351,6 @@ func (api *Api) connect() error {
 	// keep alive
 	go func() {
 		for {
-			log.Printf("#%d send empty message", api.flag)
 			err := c.WriteMessage(1, []byte(""))
 			if err != nil {
 				log.Printf("#%d send empty message failed: %s", api.flag, err)
@@ -311,6 +391,7 @@ func (api *Api) connect() error {
 			return nil
 		}
 		raw := string(message)
+		log.Println(raw)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
 			api.tokenExpired = true
@@ -322,15 +403,27 @@ func (api *Api) connect() error {
 			if strings.Contains(rawLine, "sys_nxkey=") || strings.Contains(rawLine, "sys_time=") || strings.Contains(rawLine, "sys_auth=") || len(rawLine) < 10 {
 				continue
 			}
+			// ticket
+			if rawLine[12:14] == "_0" || rawLine[12:14] == "_1" {
+				tickets, err := api.parseTicket(rawLine)
+				if err == nil {
+					strategyNameList := api.subscriber.ticketCodeStrategyMap[tickets.Code]
+					for _, strategyName := range strategyNameList {
+						api.subscriber.ticketChanMap[strategyName] <- tickets
+					}
+				}
+				continue
+			}
+			// quotation
 			quo, err := api.parseQuotation(rawLine)
 			if err == nil {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					quo.Code = "i" + quo.Code
 				}
 				api.subscriber.cacheQuotaionChan <- quo
-				strategyNameList := api.strategyMap[quo.Code]
+				strategyNameList := api.subscriber.quotationCodeStrategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
-					api.quotationChanMap[strategyName] <- quo
+					api.subscriber.quotationChanMap[strategyName] <- quo
 				}
 			}
 		}
@@ -338,17 +431,17 @@ func (api *Api) connect() error {
 }
 
 func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
-	quo := &Quotation{}
 	rawLines := strings.SplitN(rawLine, "=", 2)
 	if len(rawLines) < 2 {
-		return quo, fmt.Errorf("unexpected data %s", rawLine)
+		return nil, fmt.Errorf("unexpected data %s", rawLine)
 	}
+	quo := new(Quotation)
 	if rawLines[0][0:4] == "2cn_" {
 		quo.Code = rawLines[0][6:12]
 		rawLines = strings.Split(rawLines[1], ",")
 		length := len(rawLines)
 		if length < 40 {
-			return quo, fmt.Errorf("unexpected data %s", rawLine)
+			return nil, fmt.Errorf("unexpected data %s", rawLine)
 		}
 		quo.Name = rawLines[0]
 		quo.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", rawLines[2], rawLines[1]))
@@ -387,6 +480,33 @@ func (api *Api) parseQuotation(rawLine string) (*Quotation, error) {
 	}
 }
 
+func (api *Api) parseTicket(rawLine string) (*Tickets, error) {
+	rawLines := strings.SplitN(rawLine, "=", 2)
+	if len(rawLines) < 2 {
+		return nil, fmt.Errorf("unexpected data %s", rawLine)
+	}
+	tickets := new(Tickets)
+	tickets.Code = rawLines[0][6:12]
+	rawLines = strings.Split(rawLines[1], ",")
+	for _, rawTicket := range rawLines {
+		ticketSlice := strings.Split(rawTicket, "|")
+		if len(ticketSlice) != 9 {
+			return nil, fmt.Errorf("unexpected data %s", rawTicket)
+		}
+		ticket := Ticket{}
+		ticket.Amount, _ = strconv.ParseFloat(ticketSlice[3], 64)
+		ticket.Price, _ = strconv.ParseFloat(ticketSlice[2], 64)
+		ticket.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", api.subscriber.today, ticketSlice[1]))
+		if ticketSlice[7] == "0" {
+			ticket.Type = TICKET_SELL
+		} else if ticketSlice[7] == "2" {
+			ticket.Type = TICKET_BUY
+		}
+		tickets.Tickets = append(tickets.Tickets, ticket)
+	}
+	return tickets, nil
+}
+
 func (api *Api) refreshToken() error {
 	log.Printf("#%d refresh token", api.flag)
 	client := &http.Client{
@@ -395,13 +515,13 @@ func (api *Api) refreshToken() error {
 	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
 		api.Params = "2cn_sh502014," + api.Params
 	}
-	url := fmt.Sprintf(api.TokenServer, api.IP, api.Params)
+	url := fmt.Sprintf(api.subscriber.TokenServer, api.subscriber.IP, api.Params)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Add("User-Agent", api.UA)
-	req.Header.Add("Cookie", api.Cookie)
+	req.Header.Add("User-Agent", api.subscriber.UA)
+	req.Header.Add("Cookie", api.subscriber.Cookie)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
