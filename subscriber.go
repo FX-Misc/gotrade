@@ -29,8 +29,8 @@ type Quotation struct {
 	Name        string
 	PreClose    float64
 	Close       float64
-	Volume      float64
-	TradeAmount float64
+	Volume      float64 // 成交量(元)
+	TradeAmount float64 // 成交股数
 	Time        time.Time
 	Now         time.Time
 	Bids        []OrderBook
@@ -118,19 +118,6 @@ func NewSubscriber(configPath string) (subscriber *Subscriber) {
 
 func (sbr *Subscriber) Run() {
 	sbr.logger.Info("running...")
-	// found := make(map[string]bool)
-	// uniqueCodeList := []string{}
-	// for len(sbr.codeList) == 0 {
-	// 	sbr.logger.Info("no subscribe stock subscriber waiting...")
-	// 	time.Sleep(1 * time.Second)
-	// }
-	// for _, code := range sbr.codeList {
-	// 	if !found[code] {
-	// 		found[code] = true
-	// 		uniqueCodeList = append(uniqueCodeList, code)
-	// 	}
-	// }
-	// sbr.codeList = uniqueCodeList
 	log.Printf("subscribe quotation list %s", sbr.quotationCodeList)
 	log.Printf("subscribe ticket list %s", sbr.ticketCodeList)
 
@@ -177,10 +164,9 @@ func (sbr *Subscriber) Run() {
 	// subscribe quotation
 	start, end, flag := 0, 0, 0
 	length := len(quotationParamList)
-
 	if length > 0 {
 		for {
-			end = start + 50
+			end = start + 62
 			if end >= length {
 				end = length
 			}
@@ -197,7 +183,7 @@ func (sbr *Subscriber) Run() {
 			if end >= length {
 				break
 			}
-			start = start + 50
+			start = start + 62
 		}
 	}
 
@@ -206,7 +192,7 @@ func (sbr *Subscriber) Run() {
 	length = len(ticketParamList)
 	if length > 0 {
 		for {
-			end = start + 20
+			end = start + 30
 			if end >= length {
 				end = length
 			}
@@ -216,20 +202,19 @@ func (sbr *Subscriber) Run() {
 				subscriber: sbr,
 				flag:       flag,
 			}
+			flag += 1
 			go api.Run()
 			// 分散 worker 防止并发量过大
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Millisecond * 500)
 			if end >= length {
 				break
 			}
-			start = start + 20
-			flag += 1
+			start = start + 30
 		}
 	}
 }
 
 func (api *Api) Run() {
-	lastRefresh := time.Now().Unix()
 	err := api.refreshToken()
 	if err != nil {
 		log.Printf("#%d %s", api.flag, err)
@@ -238,6 +223,7 @@ func (api *Api) Run() {
 		api.tokenExpired = false
 	}
 	go func() {
+		lastRefresh := time.Now().Unix()
 		for {
 			// 如果 token 过期 或者离上次刷新超过3分钟，刷新 token
 			if api.tokenExpired || time.Now().Unix()-lastRefresh > 180 {
@@ -351,13 +337,13 @@ func (api *Api) connect() error {
 	// keep alive
 	go func() {
 		for {
+			time.Sleep(50 * time.Second)
 			err := c.WriteMessage(1, []byte(""))
 			if err != nil {
 				log.Printf("#%d send empty message failed: %s", api.flag, err)
 				// 释放可能的空连接
 				return
 			}
-			time.Sleep(50 * time.Second)
 		}
 	}()
 
@@ -391,7 +377,6 @@ func (api *Api) connect() error {
 			return nil
 		}
 		raw := string(message)
-		log.Println(raw)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
 			api.tokenExpired = true
@@ -512,8 +497,8 @@ func (api *Api) refreshToken() error {
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	if api.Params[0:2] == "sh" || api.Params[0:2] == "sz" {
-		api.Params = "2cn_sh502014," + api.Params
+	if !strings.Contains(api.Params, "2cn_") {
+		api.Params = "2cn_sh510580," + api.Params
 	}
 	url := fmt.Sprintf(api.subscriber.TokenServer, api.subscriber.IP, api.Params)
 	req, err := http.NewRequest("GET", url, nil)
