@@ -383,6 +383,7 @@ func (api *Api) connect() error {
 			return fmt.Errorf("auth timeout")
 		}
 		rawLines := strings.SplitN(raw, "\n", -1)
+		cacheTimeQuotation := make(map[string]int64)
 		// @todo 如果有股票加入可能index的code会冲突
 		for _, rawLine := range rawLines {
 			if strings.Contains(rawLine, "sys_nxkey=") || strings.Contains(rawLine, "sys_time=") || strings.Contains(rawLine, "sys_auth=") || len(rawLine) < 10 {
@@ -405,6 +406,14 @@ func (api *Api) connect() error {
 				if quo.TradeAmount == 0 && quo.Volume == 0 && quo.Close != quo.PreClose && quo.Close != 0 && quo.Bids[0].Price == quo.Asks[0].Price && quo.Bids[0].Amount == quo.Asks[0].Amount {
 					quo.Code = "i" + quo.Code
 				}
+
+				if timestamp, found := cacheTimeQuotation[quo.Code]; found && timestamp == quo.Time.Unix() {
+					continue
+				} else {
+					cacheTimeQuotation[quo.Code] = quo.Time.Unix()
+					log.Println(cacheTimeQuotation[quo.Code])
+				}
+
 				api.subscriber.cacheQuotaionChan <- quo
 				strategyNameList := api.subscriber.quotationCodeStrategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
