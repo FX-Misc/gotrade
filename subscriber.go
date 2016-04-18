@@ -337,7 +337,7 @@ func (api *Api) connect() error {
 	// keep alive
 	go func() {
 		for {
-			time.Sleep(50 * time.Second)
+			time.Sleep(60 * time.Second)
 			err := c.WriteMessage(1, []byte(""))
 			if err != nil {
 				log.Printf("#%d send empty message failed: %s", api.flag, err)
