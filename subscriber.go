@@ -389,7 +389,7 @@ func (api *Api) connect() error {
 				continue
 			}
 			// ticket
-			if rawLine[12:14] == "_0" || rawLine[12:14] == "_1" {
+			if len(rawLine) > 15 && (rawLine[12:14] == "_0" || rawLine[12:14] == "_1") {
 				tickets, err := api.parseTicket(rawLine)
 				if err == nil {
 					strategyNameList := api.subscriber.ticketCodeStrategyMap[tickets.Code]
