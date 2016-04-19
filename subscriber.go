@@ -79,11 +79,12 @@ type Subscriber struct {
 }
 
 type Api struct {
-	Params       string
-	flag         int
-	tokenExpired bool
-	token        string
-	subscriber   *Subscriber
+	Params             string
+	flag               int
+	tokenExpired       bool
+	token              string
+	subscriber         *Subscriber
+	quotationTimeCache map[string]int64
 }
 
 func NewSubscriber(configPath string) (subscriber *Subscriber) {
@@ -172,9 +173,10 @@ func (sbr *Subscriber) Run() {
 			}
 			params := strings.Join(quotationParamList[start:end], ",")
 			api := Api{
-				Params:     params,
-				subscriber: sbr,
-				flag:       flag,
+				Params:             params,
+				subscriber:         sbr,
+				flag:               flag,
+				quotationTimeCache: make(map[string]int64, 0),
 			}
 			flag += 1
 			go api.Run()
@@ -383,7 +385,7 @@ func (api *Api) connect() error {
 			return fmt.Errorf("auth timeout")
 		}
 		rawLines := strings.SplitN(raw, "\n", -1)
-		cacheTimeQuotation := make(map[string]int64)
+
 		// @todo 如果有股票加入可能index的code会冲突
 		for _, rawLine := range rawLines {
 			if strings.Contains(rawLine, "sys_nxkey=") || strings.Contains(rawLine, "sys_time=") || strings.Contains(rawLine, "sys_auth=") || len(rawLine) < 10 {
@@ -407,10 +409,11 @@ func (api *Api) connect() error {
 					quo.Code = "i" + quo.Code
 				}
 
-				if timestamp, found := cacheTimeQuotation[quo.Code]; found && timestamp == quo.Time.Unix() {
+				// filter duplicate quotation by remote time
+				if timestamp, found := api.quotationTimeCache[quo.Code]; found && timestamp == quo.Time.Unix() {
 					continue
 				} else {
-					cacheTimeQuotation[quo.Code] = quo.Time.Unix()
+					api.quotationTimeCache[quo.Code] = quo.Time.Unix()
 				}
 
 				api.subscriber.cacheQuotaionChan <- quo
