@@ -411,7 +411,6 @@ func (api *Api) connect() error {
 					continue
 				} else {
 					cacheTimeQuotation[quo.Code] = quo.Time.Unix()
-					log.Println(cacheTimeQuotation[quo.Code])
 				}
 
 				api.subscriber.cacheQuotaionChan <- quo
