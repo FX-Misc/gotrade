@@ -337,50 +337,64 @@ func (api *Api) connect() error {
 	defer c.Close()
 
 	// keep alive
+	keepAliveTicker := time.NewTicker(60 * time.Second)
+	destoryKeepAliveChan := make(chan bool)
+	defer keepAliveTicker.Stop()
+	defer close(destoryKeepAliveChan)
 	go func() {
 		for {
-			time.Sleep(60 * time.Second)
-			err := c.WriteMessage(1, []byte(""))
-			if err != nil {
-				log.Printf("#%d send empty message failed: %s", api.flag, err)
-				// 释放可能的空连接
+			select {
+			case <-keepAliveTicker.C:
+				err := c.WriteMessage(1, []byte(""))
+				if err != nil {
+					log.Printf("#%d send empty message failed: %s", api.flag, err)
+				}
+
+			case <-destoryKeepAliveChan:
+				log.Printf("#%d destroy keep alive worker", api.flag)
 				return
 			}
 		}
 	}()
 
 	// send new token
+	sendTokenTicker := time.NewTicker(1 * time.Minute)
+	destorySendTokenChan := make(chan bool)
+	defer sendTokenTicker.Stop()
+	defer close(destorySendTokenChan)
 	go func() {
 		token := api.token
 		for {
-			time.Sleep(1 * time.Second)
-			if api.tokenExpired {
-				continue
-			}
-
-			// token 未刷新
-			if api.token == token {
-				continue
-			}
-			log.Printf("#%d send new token %s", api.flag, api.token)
-			err := c.WriteMessage(1, []byte("*"+api.token))
-			if err != nil {
-				log.Printf("#%d send token failed: %s", api.flag, err)
-				// 释放可能的空连接
+			select {
+			case <-sendTokenTicker.C:
+				if api.token == token {
+					continue
+				}
+				log.Printf("#%d send new token %s", api.flag, api.token)
+				err := c.WriteMessage(1, []byte("*"+api.token))
+				if err != nil {
+					log.Printf("#%d send token failed: %s", api.flag, err)
+				}
+				token = api.token
+			case <-destorySendTokenChan:
+				log.Printf("#%d destroy send token worker", api.flag)
 				return
 			}
-			token = api.token
 		}
 	}()
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
 			log.Printf("#%d %s", api.flag, err)
+			destoryKeepAliveChan <- true
+			destorySendTokenChan <- true
 			return nil
 		}
 		raw := string(message)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
+			destoryKeepAliveChan <- true
+			destorySendTokenChan <- true
 			api.tokenExpired = true
 			return fmt.Errorf("auth timeout")
 		}
