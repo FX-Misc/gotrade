@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -336,8 +337,9 @@ func (api *Api) connect() error {
 	}
 	defer c.Close()
 
+	conLocker := new(sync.RWMutex)
 	// keep alive
-	keepAliveTicker := time.NewTicker(60 * time.Second)
+	keepAliveTicker := time.NewTicker(1 * time.Minute)
 	destoryKeepAliveChan := make(chan bool)
 	defer keepAliveTicker.Stop()
 	defer close(destoryKeepAliveChan)
@@ -345,7 +347,9 @@ func (api *Api) connect() error {
 		for {
 			select {
 			case <-keepAliveTicker.C:
+				conLocker.Lock()
 				err := c.WriteMessage(1, []byte(""))
+				conLocker.Unlock()
 				if err != nil {
 					log.Printf("#%d send empty message failed: %s", api.flag, err)
 				}
@@ -358,7 +362,7 @@ func (api *Api) connect() error {
 	}()
 
 	// send new token
-	sendTokenTicker := time.NewTicker(1 * time.Minute)
+	sendTokenTicker := time.NewTicker(1 * time.Second)
 	destorySendTokenChan := make(chan bool)
 	defer sendTokenTicker.Stop()
 	defer close(destorySendTokenChan)
@@ -370,8 +374,10 @@ func (api *Api) connect() error {
 				if api.token == token {
 					continue
 				}
+				conLocker.Lock()
 				log.Printf("#%d send new token %s", api.flag, api.token)
 				err := c.WriteMessage(1, []byte("*"+api.token))
+				conLocker.Unlock()
 				if err != nil {
 					log.Printf("#%d send token failed: %s", api.flag, err)
 				}
