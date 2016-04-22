@@ -1,7 +1,7 @@
 package gotrade
 
 import (
-	"log"
+	// "log"
 	"testing"
 )
 
@@ -12,20 +12,18 @@ func init() {
 }
 
 func TestRun(t *testing.T) {
-	codeList := []string{"150168", "150167", "150250", "i000300", "150250", "150250"}
+	codeList := []string{"150168", "150167"}
 	quoChan := sbr.Subscribe("test", codeList)
 	ticketChan := sbr.SubscribeTicket("test", codeList)
 
 	go sbr.Run()
 	go func() {
-		for quo := range quoChan {
-			log.Println(quo)
+		for _ = range quoChan {
 		}
 	}()
 
 	go func() {
-		for tickets := range ticketChan {
-			log.Println(tickets)
+		for _ = range ticketChan {
 		}
 	}()
 

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -230,8 +229,8 @@ func (api *Api) Run() {
 		for {
 			time.Sleep(time.Millisecond * 500)
 
-			// 如果 token 过期 或者离上次刷新超过3分钟，刷新 token
-			if api.tokenExpired || time.Now().Unix()-lastRefresh > 180 {
+			// 如果 token 过期 或者离上次刷新超过5分钟，刷新 token
+			if api.tokenExpired || time.Now().Unix()-lastRefresh > 300 {
 				lastRefresh = time.Now().Unix()
 				err := api.refreshToken()
 				if err != nil {
@@ -338,70 +337,45 @@ func (api *Api) connect() error {
 	}
 	defer c.Close()
 
-	conLocker := new(sync.RWMutex)
 	// keep alive
 	keepAliveTicker := time.NewTicker(1 * time.Minute)
-	destoryKeepAliveChan := make(chan bool)
+	sendTokenTicker := time.NewTicker(3 * time.Minute)
+	destoryChan := make(chan bool)
 	defer keepAliveTicker.Stop()
-	defer close(destoryKeepAliveChan)
+	defer sendTokenTicker.Stop()
+	defer close(destoryChan)
 	go func() {
 		for {
 			select {
 			case <-keepAliveTicker.C:
-				conLocker.Lock()
 				err := c.WriteMessage(1, []byte(""))
-				conLocker.Unlock()
 				if err != nil {
 					log.Printf("#%d send empty message failed: %s", api.flag, err)
 				}
-
-			case <-destoryKeepAliveChan:
-				log.Printf("#%d destroy keep alive worker", api.flag)
-				return
-			}
-		}
-	}()
-
-	// send new token
-	sendTokenTicker := time.NewTicker(1 * time.Second)
-	destorySendTokenChan := make(chan bool)
-	defer sendTokenTicker.Stop()
-	defer close(destorySendTokenChan)
-	go func() {
-		token := api.token
-		for {
-			select {
 			case <-sendTokenTicker.C:
-				if api.token == token {
-					continue
-				}
-				conLocker.Lock()
-				log.Printf("#%d send new token %s", api.flag, api.token)
+				log.Printf("#%d send token %s", api.flag, api.token)
 				err := c.WriteMessage(1, []byte("*"+api.token))
-				conLocker.Unlock()
 				if err != nil {
 					log.Printf("#%d send token failed: %s", api.flag, err)
 				}
-				token = api.token
-			case <-destorySendTokenChan:
-				log.Printf("#%d destroy send token worker", api.flag)
+			case <-destoryChan:
+				log.Printf("#%d destroy connection worker", api.flag)
 				return
 			}
 		}
 	}()
+
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Printf("#%d %s", api.flag, err)
-			destoryKeepAliveChan <- true
-			destorySendTokenChan <- true
-			return nil
+			destoryChan <- true
+			return err
 		}
 		raw := string(message)
+		log.Println(raw)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
-			destoryKeepAliveChan <- true
-			destorySendTokenChan <- true
+			destoryChan <- true
 			api.tokenExpired = true
 			return fmt.Errorf("auth timeout")
 		}
