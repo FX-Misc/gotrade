@@ -181,7 +181,7 @@ func (sbr *Subscriber) Run() {
 			flag += 1
 			go api.Run()
 			// 分散 worker 防止并发量过大
-			time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Second * 1)
 			if end >= length {
 				break
 			}
@@ -207,7 +207,7 @@ func (sbr *Subscriber) Run() {
 			flag += 1
 			go api.Run()
 			// 分散 worker 防止并发量过大
-			time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Second * 1)
 			if end >= length {
 				break
 			}
