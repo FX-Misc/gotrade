@@ -23,7 +23,7 @@ import (
 type AccountHuatai struct {
 	client    *http.Client
 	logger    *logrus.Logger
-	Fee       float64 `yaml:"fee"`
+	FeeValue  float64 `yaml:"fee"`
 	Uid       string  `yaml:"uid"`
 	Nickname  string  `yaml:nickname`
 	Username  string  `yaml:"username"`
@@ -45,7 +45,7 @@ type Result struct {
 	Item         []Data `json:"item"`
 }
 
-func NewAccount(configPath string) (account *AccountHuatai) {
+func NewHuataiAccount(configPath string) (account *AccountHuatai) {
 	account = &AccountHuatai{}
 	account.logger = NewLogger("trader")
 	err := YamlFileDecode(configPath, account)
@@ -174,6 +174,14 @@ func (account *AccountHuatai) refreshUid() {
 			time.Sleep(time.Second * 5)
 		}
 	}()
+}
+
+func (account *AccountHuatai) Name() string {
+	return account.Nickname
+}
+
+func (account *AccountHuatai) Fee() float64 {
+	return account.FeeValue
 }
 
 // 异步挂单买
@@ -469,61 +477,6 @@ func (account *AccountHuatai) Pending() (data []Order, err error) {
 	}
 	return
 }
-
-// // 同步买下单后自动检测是否交易成功
-// func (account *AccountHuatai) BuySync(stock string, price float64, amount int64) (err error) {
-//  return
-//  var id int64
-//  id, err = account.Buy(stock, price, amount)
-//  if err != nil {
-//      return
-//  }
-//  log.Println("buy sync order id is ", id)
-//  isDeal := false
-//  for !isDeal {
-//      isDeal = true
-//      log.Println("sync buy not deal wait...")
-//      orderList, err := account.Pending()
-//      for err != nil {
-//          orderList, err = account.Pending()
-//      }
-//      for _, order := range orderList {
-//          if order.Id == id {
-//              isDeal = false
-//              break
-//          }
-//      }
-//  }
-//  return
-// }
-
-// // 同步卖
-// func (account *AccountHuatai) SellSync(stock string, price float64, amount int64) (err error) {
-//  return
-//  var id int64
-//  id, err = account.Sell(stock, price, amount)
-//  if err != nil {
-//      return
-//  }
-//  log.Println("sell sync order id is ", id)
-
-//  isDeal := false
-//  for !isDeal {
-//      isDeal = true
-//      log.Println("sync sell not deal wait...")
-//      orderList, err := account.Pending()
-//      for err != nil {
-//          orderList, err = account.Pending()
-//      }
-//      for _, order := range orderList {
-//          if order.Id == id {
-//              isDeal = false
-//              break
-//          }
-//      }
-//  }
-//  return
-// }
 
 // 延迟自动撤单
 func (account *AccountHuatai) DeferCancel(id int64, afterSecond int64) {

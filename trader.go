@@ -28,9 +28,13 @@ type Order struct {
 }
 
 type Account interface {
+	Login() error
+	Name() string
+	Fee() float64
 	Buy(string, float64, float64) (int64, error)
 	Sell(string, float64, float64) (int64, error)
 	Cancel(int64) error
+	DeferCancel(int64, int64)
 	Position() ([]*StockPosition, error)
 	Balance() (Balance, error)
 	Pending() ([]Order, error)
