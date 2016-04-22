@@ -547,12 +547,14 @@ func (api *Api) refreshToken() error {
 	re := regexp.MustCompile(`result:"(.+?)"`)
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
-		api.token = string(result[0][1])
-		log.Printf("#%d get token %s", api.flag, api.token)
-		return nil
-	} else {
-		return fmt.Errorf("can't match token")
+		token := string(result[0][1])
+		if !strings.Contains(token, "have no buy") {
+			api.token = token
+			log.Printf("#%d get token %s", api.flag, api.token)
+			return nil
+		}
 	}
+	return fmt.Errorf("can't match token")
 }
 
 func (q *Quotation) GetDepthPrice(minDepth float64, side string) float64 {
