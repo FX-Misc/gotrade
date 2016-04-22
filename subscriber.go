@@ -214,6 +214,8 @@ func (sbr *Subscriber) Run() {
 			start = start + 30
 		}
 	}
+
+	log.Printf("all %d worker started", flag+1)
 }
 
 func (api *Api) Run() {
@@ -372,7 +374,6 @@ func (api *Api) connect() error {
 			return err
 		}
 		raw := string(message)
-		log.Println(raw)
 		if strings.Contains(raw, "sys_auth=FAILED") {
 			// 标记 token 为过期
 			destoryChan <- true
