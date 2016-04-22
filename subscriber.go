@@ -228,6 +228,8 @@ func (api *Api) Run() {
 	go func() {
 		lastRefresh := time.Now().Unix()
 		for {
+			time.Sleep(time.Millisecond * 500)
+
 			// 如果 token 过期 或者离上次刷新超过3分钟，刷新 token
 			if api.tokenExpired || time.Now().Unix()-lastRefresh > 180 {
 				lastRefresh = time.Now().Unix()
@@ -239,7 +241,6 @@ func (api *Api) Run() {
 				}
 				api.tokenExpired = false
 			}
-			time.Sleep(time.Millisecond * 500)
 		}
 	}()
 
