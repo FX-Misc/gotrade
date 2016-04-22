@@ -548,7 +548,7 @@ func (api *Api) refreshToken() error {
 	result := re.FindAllSubmatch(body, 1)
 	if len(result) == 1 && len(result[0]) == 2 {
 		token := string(result[0][1])
-		if !strings.Contains(token, "have no buy") {
+		if !strings.Contains(token, "have not buy") {
 			api.token = token
 			log.Printf("#%d get token %s", api.flag, api.token)
 			return nil
