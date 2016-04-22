@@ -383,6 +383,19 @@ func (account *Account) GetPositionMap() (positionMap map[string]*StockPosition,
 	return
 }
 
+// 2.0
+func (account *Account) GetPendingMap() (orderMap map[string]*Order, err error) {
+	orderList, err := account.Pending()
+	if err != nil {
+		return
+	}
+	orderMap = make(map[string]*Order)
+	for _, order := range orderList {
+		orderMap[order.Code] = &order
+	}
+	return
+}
+
 // 获取账户资金
 func (account *Account) Balance() (data Balance, err error) {
 	raw := fmt.Sprintf("uid=%s&cssweb_type=GET_FUNDS&version=1&custid=%s&op_branch_no=36&branch_no=36&op_entrust_way=7&op_station=IP$171.212.136.167;MAC$08-00-27-74-30-E4;HDD$VB95a57881-8897b350 &function_id=405&fund_account=%s&password=%s&identity_type=&money_type=&ram=0.5080185956321657",
