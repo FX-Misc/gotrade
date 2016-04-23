@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-var account *Account
+var account *AccountHuatai
 
 func init() {
-	account = NewAccount("config/trade.yaml")
+	account = NewHuataiAccount("config/trade.yaml")
 }
 
 func Test_Login(t *testing.T) {

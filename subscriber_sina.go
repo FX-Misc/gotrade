@@ -71,7 +71,7 @@ func NewSinaSubscriber(configPath string) (subscriber *SubscriberSina) {
 	return
 }
 
-// @todo Run后实时新增订阅
+// 订阅基本行情
 func (s *SubscriberSina) Subscribe(strategyName string, codeList []string) (quotationChan chan *Quotation) {
 	s.logger.Infof("subscribe strategy: %s code list: %q", strategyName, codeList)
 	found := make(map[string]bool)
@@ -87,6 +87,25 @@ func (s *SubscriberSina) Subscribe(strategyName string, codeList []string) (quot
 	}
 	quotationChan = make(chan *Quotation)
 	s.quotationChanMap[strategyName] = quotationChan
+	return
+}
+
+// 订阅逐笔
+func (s *SubscriberSina) SubscribeTicket(strategyName string, codeList []string) (ticketChan chan *Tickets) {
+	s.logger.Infof("subscribeTicket strategy: %s code list: %q", strategyName, codeList)
+	found := make(map[string]bool)
+	for _, code := range codeList {
+		if !found[code] {
+			found[code] = true
+			s.ticketCodeStrategyMap[code] = append(s.ticketCodeStrategyMap[code], strategyName)
+		}
+		if !s.ticketCodeFound[code] {
+			s.ticketCodeFound[code] = true
+			s.ticketCodeList = append(s.ticketCodeList, code)
+		}
+	}
+	ticketChan = make(chan *Tickets)
+	s.ticketChanMap[strategyName] = ticketChan
 	return
 }
 
@@ -232,24 +251,6 @@ func (api *Api) Run() {
 		}
 		log.Printf("#%d closed", api.flag)
 	}
-}
-
-func (s *SubscriberSina) SubscribeTicket(strategyName string, codeList []string) (ticketChan chan *Tickets) {
-	s.logger.Infof("subscribeTicket strategy: %s code list: %q", strategyName, codeList)
-	found := make(map[string]bool)
-	for _, code := range codeList {
-		if !found[code] {
-			found[code] = true
-			s.ticketCodeStrategyMap[code] = append(s.ticketCodeStrategyMap[code], strategyName)
-		}
-		if !s.ticketCodeFound[code] {
-			s.ticketCodeFound[code] = true
-			s.ticketCodeList = append(s.ticketCodeList, code)
-		}
-	}
-	ticketChan = make(chan *Tickets)
-	s.ticketChanMap[strategyName] = ticketChan
-	return
 }
 
 // deprecated
@@ -450,6 +451,7 @@ func (api *Api) parseTicket(rawLine string) (*Tickets, error) {
 		}
 		tickets.Tickets = append(tickets.Tickets, ticket)
 	}
+	tickets.Now = time.Now()
 	return tickets, nil
 }
 
