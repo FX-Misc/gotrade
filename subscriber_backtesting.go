@@ -7,11 +7,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type SubscriberBackTesting struct {
 	logger                   *logrus.Logger
+	cacheQuotationLocker     *sync.RWMutex
 	quotationCodeList        []string
 	ticketCodeList           []string
 	quotationCodeFound       map[string]bool
@@ -41,6 +43,7 @@ func NewBackTestingSubscriber(storePath string, dateStr string) (*SubscriberBack
 	sbr.logger = NewLogger("subscriber_backtesting")
 	sbr.dateStr = dateStr
 	sbr.dataFile = fmt.Sprintf("%s/%s.txt", storePath, dateStr)
+	sbr.cacheQuotationLocker = new(sync.RWMutex)
 	f, err := os.Open(sbr.dataFile)
 	if err != nil {
 		return nil, fmt.Errorf("data file %s not exists", sbr.dataFile)
@@ -126,16 +129,20 @@ func (sbr *SubscriberBackTesting) Run() {
 
 func (sbr *SubscriberBackTesting) CacheQuotation() {
 	for quotation := range sbr.cacheQuotaionChan {
+		sbr.cacheQuotationLocker.Lock()
 		sbr.quotationCacheMap[quotation.Code] = quotation
+		sbr.cacheQuotationLocker.Unlock()
 	}
 }
 
 func (sbr *SubscriberBackTesting) GetQuation(code string) (quotation *Quotation, err error) {
 	var found bool
+	sbr.cacheQuotationLocker.Lock()
 	quotation, found = sbr.quotationCacheMap[code]
 	if !found {
 		err = fmt.Errorf("%s not coming", code)
 	}
+	sbr.cacheQuotationLocker.Unlock()
 	return
 }
 

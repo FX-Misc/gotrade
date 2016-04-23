@@ -6,8 +6,7 @@ import (
 
 // 默认判断是否在开盘期间，支持自定义时间段 ([]string{"09:30:00", "11:30:00"}, []string{"13:00:00", "15:00:00"})
 // 时间参数必须严格到 xx:xx:xx 否则会返回 false
-func MarketIsOpening(durations ...[]string) bool {
-	now := time.Now()
+func MarketIsOpening(now time.Time, durations ...[]string) bool {
 	if now.Weekday() == time.Saturday || now.Weekday() == time.Sunday {
 		return false
 	}
