@@ -87,6 +87,7 @@ func (account *AccountBacktesting) Position() (data []*StockPosition, err error)
 		stockPosition.ProfitRatio /= 100
 		data = append(data, stockPosition)
 	}
+	return
 }
 
 func (account *AccountBacktesting) GetPositionMap() (positionMap map[string]*StockPosition, err error) {
