@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +16,8 @@ type SubscriberBackTesting struct {
 	ticketCodeList           []string
 	quotationCodeFound       map[string]bool
 	ticketCodeFound          map[string]bool
-	dataFiles                map[string]string          // [date]file
+	dateStr                  string
+	dataFile                 string                     // path to data file
 	quotationChanMap         map[string]chan *Quotation // quotation strategy to channel [strategyName]quotitaionChannel
 	quotationCodeStrategyMap map[string][]string        // quotation code to strategies [code][]{strategy_1, strategy_2}
 	cacheQuotaionChan        chan *Quotation            // for cache quotation
@@ -26,7 +26,7 @@ type SubscriberBackTesting struct {
 	ticketCodeStrategyMap    map[string][]string        // ticket code to strategies [code][]{strategy_1, strategy_2}
 }
 
-func NewBackTestingSubscriber(storePath string, from string, to string) *SubscriberBackTesting {
+func NewBackTestingSubscriber(storePath string, dateStr string) (*SubscriberBackTesting, error) {
 	sbr := new(SubscriberBackTesting)
 	sbr.quotationCodeList = []string{}
 	sbr.ticketCodeList = []string{}
@@ -39,29 +39,14 @@ func NewBackTestingSubscriber(storePath string, from string, to string) *Subscri
 	sbr.ticketCodeFound = make(map[string]bool)
 	sbr.quotationCacheMap = make(map[string]*Quotation)
 	sbr.logger = NewLogger("subscriber_backtesting")
-	starTime, err := time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT00:00:00+08:00", from))
+	sbr.dateStr = dateStr
+	sbr.dataFile = fmt.Sprintf("%s/%s.txt", storePath, dateStr)
+	f, err := os.Open(sbr.dataFile)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("data file %s not exists", sbr.dataFile)
 	}
-	endTime, err := time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT00:00:00+08:00", to))
-	if err != nil {
-		panic(err)
-	}
-	sbr.dataFiles = make(map[string]string, 0)
-	for timeStamp := starTime.Unix(); timeStamp <= endTime.Unix(); timeStamp += 24 * 3600 {
-		curTime := time.Unix(timeStamp, 0)
-		dateStr := curTime.Format("2006-01-02")
-		dataFile := fmt.Sprintf("%s/%s.txt", storePath, dateStr)
-		sbr.logger.Printf("check data file %s", dataFile)
-		f, err := os.Open(dataFile)
-		if err != nil {
-			sbr.logger.Printf("data file %s not exists", dataFile)
-			continue
-		}
-		f.Close()
-		sbr.dataFiles[dateStr] = dataFile
-	}
-	return sbr
+	f.Close()
+	return sbr, nil
 }
 
 // 订阅基本行情
@@ -109,27 +94,25 @@ func (sbr *SubscriberBackTesting) SubscribeTicket(id string, codes []string) (ti
 
 func (sbr *SubscriberBackTesting) Run() {
 	go sbr.CacheQuotation()
-	for dateStr, dataFile := range sbr.dataFiles {
-		f, err := os.Open(dataFile)
-		if err != nil {
-			sbr.logger.Errorf("open data file %s failed %s", dataFile, err)
-			continue
-		}
-		scanner := bufio.NewScanner(f)
-		sbr.logger.Printf("start scan data file %s", dataFile)
-		for scanner.Scan() {
-			raw := scanner.Text()
-			if raw[0:2] == "0=" {
-				sbr.decodeQuotation(dateStr, raw[2:])
-			} else if raw[0:2] == "1=" {
-				sbr.decodeTickets(dateStr, raw[2:])
-			}
-		}
-		if err = scanner.Err(); err != nil {
-			sbr.logger.Warningf("scan error %s", err)
-		}
-		f.Close()
+	f, err := os.Open(sbr.dataFile)
+	if err != nil {
+		sbr.logger.Errorf("open data file %s failed %s", sbr.dataFile, err)
+		return
 	}
+	scanner := bufio.NewScanner(f)
+	sbr.logger.Printf("start scan data file %s", sbr.dataFile)
+	for scanner.Scan() {
+		raw := scanner.Text()
+		if raw[0:2] == "0=" {
+			sbr.decodeQuotation(raw[2:])
+		} else if raw[0:2] == "1=" {
+			sbr.decodeTickets(raw[2:])
+		}
+	}
+	if err = scanner.Err(); err != nil {
+		sbr.logger.Warningf("scan error %s", err)
+	}
+	f.Close()
 	sbr.logger.Println("all data parsed")
 	for _, ticketChan := range sbr.ticketChanMap {
 		close(ticketChan)
@@ -159,7 +142,7 @@ func (sbr *SubscriberBackTesting) GetQuation(code string) (quotation *Quotation,
 /*
 0=code,time|close|volume|trade_amount|bid1_price|bid2_price|....|bid1_amount|bid2_amount|...|ask1_price|ask2_price|...|ask1_amount|ask2_amount|...
 */
-func (sbr *SubscriberBackTesting) decodeQuotation(dateStr string, raw string) {
+func (sbr *SubscriberBackTesting) decodeQuotation(raw string) {
 	rawLines := strings.Split(raw, ",")
 	if len(rawLines) != 2 {
 		sbr.logger.Warningf("decode line %s failed", raw)
@@ -172,7 +155,7 @@ func (sbr *SubscriberBackTesting) decodeQuotation(dateStr string, raw string) {
 		sbr.logger.Warningf("decode line %s failed", rawLines[1])
 		return
 	}
-	quo.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", dateStr, rawLines[0]))
+	quo.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", sbr.dateStr, rawLines[0]))
 	quo.Now = quo.Time
 	quo.Close, _ = strconv.ParseFloat(rawLines[1], 64)
 	quo.Volume, _ = strconv.ParseFloat(rawLines[2], 64)
@@ -198,7 +181,7 @@ func (sbr *SubscriberBackTesting) decodeQuotation(dateStr string, raw string) {
 /*
 1=code,time|price|amount|type,time|price|amount|type
 */
-func (sbr *SubscriberBackTesting) decodeTickets(dateStr string, raw string) {
+func (sbr *SubscriberBackTesting) decodeTickets(raw string) {
 	rawLines := strings.Split(raw, ",")
 	if len(raw) < 2 {
 		sbr.logger.Printf("empty tickets line %s", raw)
@@ -209,12 +192,12 @@ func (sbr *SubscriberBackTesting) decodeTickets(dateStr string, raw string) {
 	rawLines = rawLines[1:]
 	for _, ticketLine := range rawLines {
 		ticketLines := strings.Split(ticketLine, "|")
-		if len(ticketLine) != 4 {
+		if len(ticketLines) != 4 {
 			sbr.logger.Warningf("parse ticket line %s failed", ticketLine)
 			continue
 		}
 		ticket := Ticket{}
-		ticket.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", dateStr, ticketLines[1]))
+		ticket.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", sbr.dateStr, ticketLines[0]))
 		ticket.Price, _ = strconv.ParseFloat(ticketLines[1], 64)
 		ticket.Amount, _ = strconv.ParseFloat(ticketLines[2], 64)
 		if ticketLines[3] == "0" {
@@ -227,7 +210,6 @@ func (sbr *SubscriberBackTesting) decodeTickets(dateStr string, raw string) {
 	tickets.Now = tickets.Tickets[0].Time
 	// push
 	strategyNameList := sbr.ticketCodeStrategyMap[tickets.Code]
-	log.Println(strategyNameList)
 	for _, strategyName := range strategyNameList {
 		sbr.ticketChanMap[strategyName] <- tickets
 	}

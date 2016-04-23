@@ -6,7 +6,10 @@ import (
 )
 
 func TestBackTestingSubscriber(t *testing.T) {
-	sbrBackTesting := NewBackTestingSubscriber("/tmp/storage", "2016-04-22", "2016-04-22")
+	sbrBackTesting, err := NewBackTestingSubscriber("/tmp/storage", "2016-04-22")
+	if err != nil {
+		panic(err)
+	}
 	codeList := []string{"002775"}
 	quoChan := sbrBackTesting.Subscribe("test", codeList)
 	ticketChan := sbrBackTesting.SubscribeTicket("test", codeList)
