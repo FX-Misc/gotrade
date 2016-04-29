@@ -13,6 +13,7 @@ import (
 
 type SubscriberBackTesting struct {
 	logger                   *logrus.Logger
+	wg                       *sync.WaitGroup
 	cacheQuotationLocker     *sync.RWMutex
 	quotationCodeList        []string
 	ticketCodeList           []string
@@ -28,8 +29,9 @@ type SubscriberBackTesting struct {
 	ticketCodeStrategyMap    map[string][]string        // ticket code to strategies [code][]{strategy_1, strategy_2}
 }
 
-func NewBackTestingSubscriber(storePath string, dateStr string) (*SubscriberBackTesting, error) {
+func NewBackTestingSubscriber(storePath string, dateStr string, wg *sync.WaitGroup) (*SubscriberBackTesting, error) {
 	sbr := new(SubscriberBackTesting)
+	sbr.wg = wg
 	sbr.quotationCodeList = []string{}
 	sbr.ticketCodeList = []string{}
 	sbr.quotationCodeStrategyMap = make(map[string][]string)
@@ -124,14 +126,22 @@ func (sbr *SubscriberBackTesting) Run() {
 	for _, quotationChan := range sbr.quotationChanMap {
 		close(quotationChan)
 	}
+	close(sbr.cacheQuotaionChan)
+	sbr.wg.Done()
 	return
 }
 
 func (sbr *SubscriberBackTesting) CacheQuotation() {
-	for quotation := range sbr.cacheQuotaionChan {
-		sbr.cacheQuotationLocker.Lock()
-		sbr.quotationCacheMap[quotation.Code] = quotation
-		sbr.cacheQuotationLocker.Unlock()
+	for {
+		select {
+		case quotation, ok := <-sbr.cacheQuotaionChan:
+			if !ok {
+				return
+			}
+			sbr.cacheQuotationLocker.Lock()
+			sbr.quotationCacheMap[quotation.Code] = quotation
+			sbr.cacheQuotationLocker.Unlock()
+		}
 	}
 }
 
