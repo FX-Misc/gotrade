@@ -207,7 +207,7 @@ func (sbr *SubscriberSina) Run() {
 		}
 	}
 
-	log.Printf("all %d worker started", flag+1)
+	log.Printf("all %d worker started", flag)
 }
 
 func (api *Api) Run() {
