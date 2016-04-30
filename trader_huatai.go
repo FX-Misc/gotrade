@@ -352,27 +352,29 @@ func (account *AccountHuatai) Position() (data []*StockPosition, err error) {
 }
 
 // 2.0
-func (account *AccountHuatai) GetPositionMap() (positionMap map[string]*StockPosition, err error) {
+func (account *AccountHuatai) GetPositionMap() (positionMap *PositionMap, err error) {
 	positionList, err := account.Position()
 	if err != nil {
 		return
 	}
-	positionMap = make(map[string]*StockPosition)
+	cmap := NewPositionMap()
+	positionMap = &cmap
 	for _, position := range positionList {
-		positionMap[position.Code] = position
+		positionMap.Set(position.Code, position)
 	}
 	return
 }
 
 // 2.0
-func (account *AccountHuatai) GetPendingMap() (orderMap map[string]*Order, err error) {
+func (account *AccountHuatai) GetPendingMap() (orderMap *OrderMap, err error) {
 	orderList, err := account.Pending()
 	if err != nil {
 		return
 	}
-	orderMap = make(map[string]*Order)
+	cmp := NewOrderMap()
+	orderMap = &cmp
 	for _, order := range orderList {
-		orderMap[order.Code] = &order
+		orderMap.Set(order.Code, &order)
 	}
 	return
 }
