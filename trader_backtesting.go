@@ -90,7 +90,7 @@ func (account *AccountBacktesting) Position() (data []*StockPosition, err error)
 	return
 }
 
-func (account *AccountBacktesting) GetPositionMap() (positionMap *PositionMap) {
+func (account *AccountBacktesting) GetPositionMap() (positionMap *PositionMap, err error) {
 	// positionList, err := account.Position()
 	// if err != nil {
 	// 	return
