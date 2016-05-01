@@ -90,15 +90,15 @@ func (account *AccountBacktesting) Position() (data []*StockPosition, err error)
 	return
 }
 
-func (account *AccountBacktesting) GetPositionMap() (positionMap map[string]*StockPosition, err error) {
-	positionList, err := account.Position()
-	if err != nil {
-		return
-	}
-	positionMap = make(map[string]*StockPosition)
-	for _, position := range positionList {
-		positionMap[position.Code] = position
-	}
+func (account *AccountBacktesting) GetPositionMap() (positionMap *PositionMap) {
+	// positionList, err := account.Position()
+	// if err != nil {
+	// 	return
+	// }
+	// positionMap = make(map[string]*StockPosition)
+	// for _, position := range positionList {
+	// 	positionMap[position.Code] = position
+	// }
 	return
 }
 
