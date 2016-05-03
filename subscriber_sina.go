@@ -26,8 +26,6 @@ type SubscriberSina struct {
 	ticketCodeFound          map[string]bool
 	quotationChanMap         map[string]chan *Quotation // quotation strategy to channel [strategyName]quotitaionChannel
 	quotationCodeStrategyMap map[string][]string        // quotation code to strategies [code][]{strategy_1, strategy_2}
-	cacheQuotaionChan        chan *Quotation            // for cache quotation
-	quotationCacheMap        map[string]*Quotation      // cached quotation
 	ticketChanMap            map[string]chan *Tickets   // ticket strategy to channel [strategyName]TicketChannel
 	ticketCodeStrategyMap    map[string][]string        // ticket code to strategies [code][]{strategy_1, strategy_2}
 }
@@ -54,7 +52,6 @@ func NewSinaSubscriber(configPath string) (subscriber *SubscriberSina) {
 	subscriber.quotationChanMap = make(map[string]chan *Quotation)
 	subscriber.ticketChanMap = make(map[string]chan *Tickets)
 	subscriber.ticketCodeStrategyMap = make(map[string][]string)
-	subscriber.cacheQuotaionChan = make(chan *Quotation)
 	subscriber.Cookie = config.Cookie
 	subscriber.UA = config.UA
 	subscriber.quotationCodeFound = make(map[string]bool)
@@ -63,7 +60,6 @@ func NewSinaSubscriber(configPath string) (subscriber *SubscriberSina) {
 	if err != nil {
 		panic(err)
 	}
-	subscriber.quotationCacheMap = make(map[string]*Quotation)
 	subscriber.logger = NewLogger("subscriber")
 	subscriber.logger.Infof("external IP is %s", subscriber.IP)
 	subscriber.TokenServer = config.TokenServer
@@ -115,11 +111,11 @@ func (sbr *SubscriberSina) Run() {
 	log.Printf("subscribe ticket list %s", sbr.ticketCodeList)
 
 	// cache quation
-	go func() {
-		for quotation := range sbr.cacheQuotaionChan {
-			sbr.quotationCacheMap[quotation.Code] = quotation
-		}
-	}()
+	// go func() {
+	// 	for quotation := range sbr.cacheQuotaionChan {
+	// 		sbr.quotationCacheMap[quotation.Code] = quotation
+	// 	}
+	// }()
 
 	quotationParamList := make([]string, 0)
 	for _, code := range sbr.quotationCodeList {
@@ -367,7 +363,6 @@ func (api *Api) connect() error {
 					api.quotationTimeCache[quo.Code] = quo.Time.Unix()
 				}
 
-				api.subscriber.cacheQuotaionChan <- quo
 				strategyNameList := api.subscriber.quotationCodeStrategyMap[quo.Code]
 				for _, strategyName := range strategyNameList {
 					api.subscriber.quotationChanMap[strategyName] <- quo
@@ -489,12 +484,6 @@ func (api *Api) refreshToken() error {
 	return fmt.Errorf("can't match token")
 }
 
-func (s *SubscriberSina) GetQuation(code string) (quotation *Quotation, err error) {
-	var found bool
-	quotation, found = s.quotationCacheMap[code]
-	if !found {
-		err = fmt.Errorf("%s not coming", code)
-		quotation = &Quotation{}
-	}
+func (s *SubscriberSina) GetQuotation(code string) (quotation *Quotation, err error) {
 	return
 }
