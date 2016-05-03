@@ -38,5 +38,5 @@ type Account interface {
 	Position() ([]*StockPosition, error)
 	Balance() (Balance, error)
 	Pending() ([]Order, error)
-	GetPositionMap() (positionMap map[string]*StockPosition, err error)
+	GetPositionMap() (positionMap *PositionMap, err error)
 }

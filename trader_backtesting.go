@@ -49,7 +49,7 @@ func (account *AccountBacktesting) Buy(code string, price float64, amount float6
 	account.AvailableBalance -= requireMoney
 	account.TotalBalance -= requireMoney
 	account.updatePosition(code, price, amount)
-	YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/account.yaml", account)
+	YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/account.yml", account)
 	return time.Now().Unix(), nil
 }
 
@@ -62,7 +62,7 @@ func (account *AccountBacktesting) Sell(code string, price float64, amount float
 	account.AvailableBalance += requireMoney
 	account.TotalBalance += requireMoney
 	account.updatePosition(code, price, -amount)
-	YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/account.yaml", account)
+	YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/account.yml", account)
 	return time.Now().Unix(), nil
 }
 
@@ -72,7 +72,7 @@ func (account *AccountBacktesting) Cancel(id int64) (err error) {
 
 func (account *AccountBacktesting) Position() (data []*StockPosition, err error) {
 	positions := []BackTestingPosition{}
-	YamlFileDecode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", &positions)
+	YamlFileDecode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", &positions)
 	for _, position := range positions {
 		stockPosition := new(StockPosition)
 		stockPosition.Name = position.Code
@@ -90,27 +90,28 @@ func (account *AccountBacktesting) Position() (data []*StockPosition, err error)
 	return
 }
 
-func (account *AccountBacktesting) GetPositionMap() (positionMap map[string]*StockPosition, err error) {
+func (account *AccountBacktesting) GetPositionMap() (positionMap *PositionMap, err error) {
 	positionList, err := account.Position()
 	if err != nil {
 		return
 	}
-	positionMap = make(map[string]*StockPosition)
+	cmap := NewPositionMap()
+	positionMap = &cmap
 	for _, position := range positionList {
-		positionMap[position.Code] = position
+		positionMap.Set(position.Code, position)
 	}
 	return
 }
 
 func (account *AccountBacktesting) GetPendingMap() (orderMap map[string]*Order, err error) {
-	orderList, err := account.Pending()
-	if err != nil {
-		return
-	}
-	orderMap = make(map[string]*Order)
-	for _, order := range orderList {
-		orderMap[order.Code] = &order
-	}
+	// orderList, err := account.Pending()
+	// if err != nil {
+	// 	return
+	// }
+	// orderMap = make(map[string]*Order)
+	// for _, order := range orderList {
+	// 	orderMap[order.Code] = &order
+	// }
 	return
 }
 
@@ -133,12 +134,12 @@ func (account *AccountBacktesting) DeferCancel(id int64, afterSecond int64) {
 // 回测时，每日过后需要运行这个方法
 func (account *AccountBacktesting) DailyUpdate() {
 	positions := []BackTestingPosition{}
-	YamlFileDecode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", &positions)
+	YamlFileDecode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", &positions)
 	for _, position := range positions {
 		position.AvailableAmount = position.Amount
-		YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", positions)
+		YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", positions)
 	}
-	YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", positions)
+	YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", positions)
 }
 
 type BackTestingPosition struct {
@@ -150,7 +151,7 @@ type BackTestingPosition struct {
 
 func (account *AccountBacktesting) updatePosition(code string, price float64, amount float64) {
 	positions := []BackTestingPosition{}
-	YamlFileDecode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", &positions)
+	YamlFileDecode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", &positions)
 
 	for _, position := range positions {
 		if position.Code == code {
@@ -159,7 +160,7 @@ func (account *AccountBacktesting) updatePosition(code string, price float64, am
 			if amount < 0 {
 				position.AvailableAmount += amount
 			}
-			YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", positions)
+			YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", positions)
 			return
 		}
 	}
@@ -170,12 +171,12 @@ func (account *AccountBacktesting) updatePosition(code string, price float64, am
 		Amount: amount,
 	})
 
-	YamlFileEncode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", positions)
+	YamlFileEncode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", positions)
 }
 
 func (account *AccountBacktesting) getPosition(code string) *BackTestingPosition {
 	positions := []BackTestingPosition{}
-	YamlFileDecode(GetBasePath()+"/config/"+account.Username+"/positions.yaml", &positions)
+	YamlFileDecode(GetBasePath()+"/config/"+account.Nickname+"/positions.yml", &positions)
 
 	for _, position := range positions {
 		if position.Code == code {

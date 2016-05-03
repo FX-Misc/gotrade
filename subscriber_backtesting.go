@@ -145,7 +145,7 @@ func (sbr *SubscriberBackTesting) CacheQuotation() {
 	}
 }
 
-func (sbr *SubscriberBackTesting) GetQuation(code string) (quotation *Quotation, err error) {
+func (sbr *SubscriberBackTesting) GetQuotation(code string) (quotation *Quotation, err error) {
 	var found bool
 	sbr.cacheQuotationLocker.Lock()
 	quotation, found = sbr.quotationCacheMap[code]

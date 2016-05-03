@@ -13,7 +13,7 @@ const (
 type Subscriber interface {
 	Subscribe(string, []string) chan *Quotation
 	SubscribeTicket(string, []string) chan *Tickets
-	GetQuation(code string) (*Quotation, error)
+	GetQuotation(code string) (*Quotation, error)
 }
 
 type QuotationStack struct {
