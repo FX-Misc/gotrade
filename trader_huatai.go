@@ -166,7 +166,7 @@ func (account *AccountHuatai) Login() (err error) {
 func (account *AccountHuatai) refreshUid() {
 	go func() {
 		for {
-			account.logger.Info("refresh uid success uid : " + account.Uid)
+			// account.logger.Info("refresh uid success uid : " + account.Uid)
 			_, err := account.Position()
 			if err != nil {
 				log.Println("uid maybe out of date: ", err)
