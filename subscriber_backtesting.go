@@ -168,7 +168,7 @@ func (sbr *SubscriberBackTesting) decodeQuotation(raw string) {
 	quo := new(Quotation)
 	quo.Code = rawLines[0]
 	rawLines = strings.Split(rawLines[1], "|")
-	if len(rawLines) != 44 {
+	if len(rawLines) != 45 {
 		sbr.logger.Warningf("decode line %s failed", rawLines[1])
 		return
 	}
