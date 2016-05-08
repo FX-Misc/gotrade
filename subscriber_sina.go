@@ -81,7 +81,7 @@ func (s *SubscriberSina) Subscribe(strategyName string, codeList []string) (quot
 			s.quotationCodeList = append(s.quotationCodeList, code)
 		}
 	}
-	quotationChan = make(chan *Quotation)
+	quotationChan = make(chan *Quotation, 1024)
 	s.quotationChanMap[strategyName] = quotationChan
 	return
 }
@@ -100,7 +100,7 @@ func (s *SubscriberSina) SubscribeTicket(strategyName string, codeList []string)
 			s.ticketCodeList = append(s.ticketCodeList, code)
 		}
 	}
-	ticketChan = make(chan *Tickets)
+	ticketChan = make(chan *Tickets, 1024)
 	s.ticketChanMap[strategyName] = ticketChan
 	return
 }

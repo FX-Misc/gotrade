@@ -157,7 +157,7 @@ func (sbr *SubscriberBackTesting) GetQuotation(code string) (quotation *Quotatio
 }
 
 /*
-0=code,time|close|volume|trade_amount|bid1_price|bid2_price|....|bid1_amount|bid2_amount|...|ask1_price|ask2_price|...|ask1_amount|ask2_amount|...
+0=code,time|close|pre_close|volume|trade_amount|bid1_price|bid2_price|....|bid1_amount|bid2_amount|...|ask1_price|ask2_price|...|ask1_amount|ask2_amount|...
 */
 func (sbr *SubscriberBackTesting) decodeQuotation(raw string) {
 	rawLines := strings.Split(raw, ",")
@@ -168,16 +168,17 @@ func (sbr *SubscriberBackTesting) decodeQuotation(raw string) {
 	quo := new(Quotation)
 	quo.Code = rawLines[0]
 	rawLines = strings.Split(rawLines[1], "|")
-	if len(rawLines) != 44 {
+	if len(rawLines) != 45 {
 		sbr.logger.Warningf("decode line %s failed", rawLines[1])
 		return
 	}
 	quo.Time, _ = time.Parse("2006-01-02T15:04:05.999999-07:00", fmt.Sprintf("%sT%s+08:00", sbr.dateStr, rawLines[0]))
 	quo.Now = quo.Time
 	quo.Close, _ = strconv.ParseFloat(rawLines[1], 64)
-	quo.Volume, _ = strconv.ParseFloat(rawLines[2], 64)
-	quo.TradeAmount, _ = strconv.ParseFloat(rawLines[3], 64)
-	rawLines = rawLines[4:]
+	quo.PreClose, _ = strconv.ParseFloat(rawLines[2], 64)
+	quo.Volume, _ = strconv.ParseFloat(rawLines[3], 64)
+	quo.TradeAmount, _ = strconv.ParseFloat(rawLines[4], 64)
+	rawLines = rawLines[5:]
 	quo.Bids = make([]OrderBook, 10)
 	quo.Asks = make([]OrderBook, 10)
 	for index := 0; index < 10; index++ {

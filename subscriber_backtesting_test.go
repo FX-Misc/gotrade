@@ -3,14 +3,16 @@ package gotrade
 import (
 	"log"
 	"testing"
+    "sync"
 )
 
 func TestBackTestingSubscriber(t *testing.T) {
-	sbrBackTesting, err := NewBackTestingSubscriber("/tmp/storage", "2016-04-22")
+    wg := new(sync.WaitGroup)
+	sbrBackTesting, err := NewBackTestingSubscriber("/var/stock_data", "2016-05-06", wg)
 	if err != nil {
 		panic(err)
 	}
-	codeList := []string{"002775"}
+	codeList := []string{"150299"}
 	quoChan := sbrBackTesting.Subscribe("test", codeList)
 	ticketChan := sbrBackTesting.SubscribeTicket("test", codeList)
 
