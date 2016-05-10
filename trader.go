@@ -11,6 +11,11 @@ type StockPosition struct {
 	ProfitRatio     float64 `yaml:"profit_ratio"` // 盈利率
 }
 
+const (
+	ORDER_TYPE_BUY  = "buy"
+	ORDER_TYPE_SELL = "sell"
+)
+
 type Balance struct {
 	Balance          float64
 	MarketBalance    float64
